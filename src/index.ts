@@ -25,3 +25,5 @@ export * from "./validation/authSchemas";
 
 // Utils
 export * from "./utils/rateLimit";
+
+export { initSpectraAuth } from "./init";

@@ -1,46 +1,42 @@
 # Spectra Auth
 
-A credentials-based authentication solution for Next.js (and other Node.js projects) featuring:
+A **credentials-based** authentication solution for Next.js (and other Node.js projects) featuring:
 
-- **Database-backed sessions** (stored in Prisma)
+- **Database-backed sessions** (stored in [Prisma](https://www.prisma.io/))
 - **IP rate-limiting** (powered by [Upstash Redis](https://upstash.com/))
 - **Automatic account lockouts** after too many failed attempts
 - **Email verification** and **password reset** flows
+- Designed to integrate easily with **your own Prisma schema**, with minimal required fields
 
 ## Table of Contents
 
-1. [Installation](#installation)
-2. [Prerequisites](#prerequisites)
-3. [Prisma Schema Setup](#prisma-schema-setup)
-4. [Environment Variables](#environment-variables)
-5. [Usage Example](#usage-example)
-6. [Available Methods](#available-methods)
-7. [License](#license)
+1. [Installation](#installation)  
+2. [Prerequisites](#prerequisites)  
+3. [Prisma Schema Setup](#prisma-schema-setup)  
+4. [Environment Variables](#environment-variables)  
+5. [Usage Example](#usage-example)  
+6. [Available Methods](#available-methods)  
+7. [Testing](#testing)  
+8. [License](#license)
 
----
-
-## Installation
+## 1. Installation
 
 ```bash
 npm install spectra-auth
 
-# or, if you prefer Yarn or pnpm:
-# yarn add spectra-auth
-# pnpm add spectra-auth
+# or:
+yarn add spectra-auth
+pnpm add spectra-auth
 ```
 
----
+## 2. Prerequisites
 
-## Prerequisites
+- **Prisma**: You need Prisma configured in your project to store `User`, `Session`, and `Verification` data.  
+- **Upstash Redis**: Required for IP-based rate-limiting. If you don’t plan to use rate-limiting, you can mock or disable it in tests, but in production, you should set it up.
 
-- **Prisma**: You need a Prisma setup (including your `schema.prisma`) to store users, sessions, and verification records.
-- **Upstash Redis**: For IP-based rate-limiting, you need an Upstash Redis database (or similar). Spectra Auth uses environment variables to connect.
+## 3. Prisma Schema Setup
 
----
-
-## Prisma Schema Setup
-
-In your `schema.prisma`, ensure you have the following (or equivalent) models. (Spectra Auth expects these fields to exist, but you can add more fields if needed.)
+In your `schema.prisma`, ensure you have the following (or equivalent) models. Spectra Auth expects at least these fields, though you can add more. If you rename fields, you may need to adapt some logic:
 
 ```prisma
 enum VerificationType {
@@ -59,7 +55,7 @@ model User {
   isBanned            Boolean   @default(false)
   failedLoginAttempts Int       @default(0)
   lockedUntil         DateTime?
-  // Additional fields are optional
+  // Additional fields optional
   displayName         String?
   roles               String[]
   createdAt           DateTime  @default(now())
@@ -80,7 +76,7 @@ model Session {
   expiresAt   DateTime
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-
+  // Optional device info:
   ipAddress   String?
   location    String?
   country     String?
@@ -111,120 +107,78 @@ model Verification {
 }
 ```
 
-After updating your schema, run:
+Once updated, run:
 
 ```bash
 npx prisma db push
-# or
+# or:
 npx prisma migrate dev
 ```
 
----
+## 4. Environment Variables
 
-## Environment Variables
-
-Spectra Auth uses Upstash for IP-based rate-limiting. Set the following environment variables:
+Spectra Auth uses Upstash for IP-based rate-limiting. You must set these environment variables so the library won’t complain at load time:
 
 ```bash
 # .env
-KV_REST_API_URL="<YOUR_UPSTASH_REDIS_REST_URL>"
-KV_REST_API_TOKEN="<YOUR_UPSTASH_REDIS_TOKEN>"
+UPSTASH_REDIS_REST_URL="<YOUR_UPSTASH_REDIS_REST_URL>"
+UPSTASH_REDIS_REST_TOKEN="<YOUR_UPSTASH_REDIS_TOKEN>"
 
-# optional: production environment
+# Optional:
 NODE_ENV="production"
 ```
 
-- **`KV_REST_API_URL`** and **`KV_REST_API_TOKEN`** are **required** for rate-limiting.
-- **`NODE_ENV`** is used to determine security options for cookies and other environment-specific logic (defaults to `"development"` if not specified).
+- **`UPSTASH_REDIS_REST_URL`** and **`UPSTASH_REDIS_REST_TOKEN`** are **required** if you’re actually using rate-limiting in production.  
 
----
+## 5. Usage Example
 
-## Usage Example
-
-Below is a minimal example using Prisma and Express-like pseudocode to demonstrate basic login and registration.
+Below is a minimal example using **Express**-style pseudocode. The same logic applies in Next.js or any Node environment:
 
 ```ts
 // src/server.ts
 import express from "express";
 import { PrismaClient } from "@prisma/client";
-import { initSpectraAuth } from "spectra-auth";
+import { initSpectraAuth, createSessionCookie, clearSessionCookie, getSessionTokenFromHeader } from "spectra-auth";
 
 const app = express();
 app.use(express.json());
 
 const prisma = new PrismaClient();
-
-// Initialize Spectra Auth
 const auth = initSpectraAuth(prisma);
 
-// ======================
-//   Register Endpoint
-// ======================
-app.post("/register", async (req, res) => {
-  const { username, email, password } = req.body;
+// Login endpoint
+app.post("/login", async (req, res) => {
+  const { identifier, password } = req.body;
+  const ipAddress = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
 
-  const result = await auth.registerUser({
-    username,
-    email,
-    password,
+  const result = await auth.loginUser({
+    input: { identifier, password },
+    ipAddress: String(ipAddress),
   });
 
   if (result.error) {
     return res.status(result.status).json({ message: result.message });
   }
 
-  // Registration success
+  // Suppose result.data.rawToken is the session token.
+  const rawToken = result.data?.rawToken as string;
+
+  // Here we use createSessionCookie from the library
+  const cookieStr = createSessionCookie(rawToken, 30 * 24 * 60 * 60); // 30 days
+
+  // Return a Set-Cookie header. In Express, you can do res.setHeader or res.set.
+  res.setHeader("Set-Cookie", cookieStr);
+
   res.status(result.status).json({
     message: result.message,
-    data: result.data,
+    userId: result.data?.userId,
   });
 });
 
-// ======================
-//   Login Endpoint
-// ======================
-app.post("/login", async (req, res) => {
-  const { identifier, password } = req.body;
-
-  // Typically retrieve IP from the request
-  const ipAddress = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
-
-  const loginResult = await auth.loginUser({
-    input: { identifier, password },
-    ipAddress: String(ipAddress),
-    deviceInfo: {
-      browser: req.headers["user-agent"],
-    },
-  });
-
-  if (loginResult.error) {
-    return res.status(loginResult.status).json({ message: loginResult.message });
-  }
-
-  // Extract the raw token from result.data
-  const rawToken = loginResult.data?.rawToken;
-
-  // Ideally, you'd set a HTTP-only cookie containing the session token
-  // In production, set 'secure: true' and other best practices
-  res.cookie("spectra.session", rawToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
-    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-  });
-
-  res.status(loginResult.status).json({
-    message: loginResult.message,
-    userId: loginResult.data?.userId,
-  });
-});
-
-// ======================
-//   Protected Endpoint
-// ======================
+// Protected route example
 app.get("/profile", async (req, res) => {
-  // Suppose we parse the raw token from cookies:
-  const rawToken = req.cookies["spectra.session"];
+  // Retrieve the raw token from the Cookie header using your helper
+  const rawToken = getSessionTokenFromHeader(req.headers.cookie ?? null);
   if (!rawToken) {
     return res.status(401).json({ message: "No session token provided" });
   }
@@ -234,66 +188,59 @@ app.get("/profile", async (req, res) => {
     return res.status(sessionCheck.status).json({ message: sessionCheck.message });
   }
 
-  // If valid, sessionCheck.data contains the session + user info
   res.status(200).json({
-    message: "Session is valid!",
+    message: "Session is valid",
     session: sessionCheck.data?.session,
   });
 });
 
-// ======================
-//   Logout Endpoint
-// ======================
+// Logout endpoint
 app.post("/logout", async (req, res) => {
-  const rawToken = req.cookies["spectra.session"];
+  const rawToken = getSessionTokenFromHeader(req.headers.cookie ?? null);
   if (!rawToken) {
-    return res.status(401).json({ message: "No session token provided" });
+    return res.status(401).json({ message: "No session token found" });
   }
 
+  // Revoke the session in DB
   const result = await auth.logoutUser(rawToken);
   if (result.error) {
     return res.status(result.status).json({ message: result.message });
   }
 
-  // Clear the cookie
-  res.clearCookie("spectra.session");
-  res.status(result.status).json({ message: result.message });
+  // Clear the session cookie
+  const clearStr = clearSessionCookie();
+  res.setHeader("Set-Cookie", clearStr);
+
+  res.status(result.status).json({ message: "Logged out" });
 });
 
-// Start server
 app.listen(3000, () => {
   console.log("Server listening on http://localhost:3000");
 });
 ```
 
----
+## 6. Available Methods
 
-## Available Methods
+When you call `initSpectraAuth(prisma)`, you get an object with these methods:
 
-When you call `const auth = initSpectraAuth(prisma)`, you get an object with these methods:
-
-1. **Registration**
+1. **Registration**  
    - `registerUser({ username, email, password })`
-
-2. **Login / Logout**
-   - `loginUser({ input: {identifier, password}, ipAddress, deviceInfo })`
+2. **Login / Logout**  
+   - `loginUser({ input: {identifier, password}, ipAddress?, deviceInfo? })`  
    - `logoutUser(rawToken)`
-
-3. **Session Management**
+3. **Session Management**  
    - `createSession({ userId, deviceInfo })`
    - `validateSession(rawToken)`
    - `revokeSession(rawToken)`
-
-4. **Email Verification**
+4. **Email Verification**  
    - `createVerificationToken({ userId, type, expiresIn? })`
    - `useVerificationToken({ token, type })`
    - `verifyEmail(rawToken)`
-
-5. **Password Reset**
+5. **Password Reset**  
    - `initiatePasswordReset(email)`
    - `completePasswordReset({ token, newPassword })`
 
-Each method returns a **`SpectraAuthResult`** object:
+Each returns a **`SpectraAuthResult`**:
 
 ```ts
 interface SpectraAuthResult {
@@ -304,8 +251,6 @@ interface SpectraAuthResult {
 }
 ```
 
----
-
-## License
+## 7. License
 
 [MIT License](./LICENSE) © 2025 [Simon Fontaine](https://github.com/Simon-Fontaine)

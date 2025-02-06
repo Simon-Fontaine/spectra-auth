@@ -1,32 +1,4 @@
-import type { RateLimitingStrategy } from "../types";
-
-export interface LoggerInterface {
-  info: (msg: string, meta?: Record<string, unknown>) => void;
-  warn: (msg: string, meta?: Record<string, unknown>) => void;
-  error: (msg: string, meta?: Record<string, unknown>) => void;
-}
-
-export interface SpectraAuthConfig {
-  // Session
-  sessionMaxAgeSec?: number;
-  sessionUpdateAgeSec?: number;
-
-  // Account Lockouts
-  accountLockThreshold?: number;
-  accountLockDurationMs?: number;
-
-  // Rate-limiting
-  rateLimitingStrategy?: RateLimitingStrategy;
-  attempts?: number;
-  windowSeconds?: number;
-
-  // CSRF
-  enableCSRF?: boolean;
-  csrfSecret?: string; // used to generate & verify CSRF tokens
-
-  // Logging
-  logger?: LoggerInterface;
-}
+import type { SpectraAuthConfig } from "../types";
 
 export const DEFAULT_CONFIG: Required<SpectraAuthConfig> = {
   // Sessions

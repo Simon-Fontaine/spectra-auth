@@ -1,17 +1,14 @@
 import type { PrismaClient } from "@prisma/client";
-import { APP_CONFIG } from "../config";
 import {
   generateTokenParts,
   hashSuffix,
   verifySuffixHash,
 } from "../crypto/session-token";
 import type { AuthSession } from "../interfaces";
-import type { SpectraAuthResult } from "../types";
+import type { SpectraAuthConfig, SpectraAuthResult } from "../types";
 
 export interface CreateSessionOptions {
-  /** The user ID to link this session to. */
   userId: string;
-  /** Optional device info (IP address, browser, etc.). */
   deviceInfo?: {
     ipAddress?: string;
     location?: string;
@@ -25,20 +22,18 @@ export interface CreateSessionOptions {
 /**
  * Creates a new session for the specified user ID.
  * Returns the raw token (prefix+suffix) in `data.rawToken`.
- *
- * @param prisma  - The PrismaClient instance.
- * @param options - { userId, deviceInfo }
- * @returns       - A SpectraAuthResult with success or error details.
  */
 export async function createSession(
   prisma: PrismaClient,
+  config: Required<SpectraAuthConfig>,
   options: CreateSessionOptions,
 ): Promise<SpectraAuthResult> {
+  const { logger, sessionMaxAgeSec } = config;
   try {
     const { prefix, suffix } = generateTokenParts();
     const suffixHash = await hashSuffix(suffix);
 
-    const expiresAt = new Date(Date.now() + APP_CONFIG.sessionMaxAgeSec * 1000);
+    const expiresAt = new Date(Date.now() + sessionMaxAgeSec * 1000);
 
     await prisma.session.create({
       data: {
@@ -55,6 +50,8 @@ export async function createSession(
       },
     });
 
+    logger.info("Session created", { userId: options.userId });
+
     return {
       error: false,
       status: 200,
@@ -62,6 +59,7 @@ export async function createSession(
       data: { rawToken: prefix + suffix },
     };
   } catch (err) {
+    logger.error("Failed to create session", { error: err });
     return {
       error: true,
       status: 500,
@@ -71,16 +69,15 @@ export async function createSession(
 }
 
 /**
- * Validates a raw session token (prefix+suffix) and applies a "throttled" sliding expiration.
- *
- * @param prisma   - The PrismaClient instance.
- * @param rawToken - The raw session token from the client (e.g. cookie).
- * @returns        - A SpectraAuthResult with the updated session or an error.
+ * Validates a raw session token (prefix+suffix). If it's near expiration,
+ * apply a "sliding" renewal if sessionUpdateAgeSec has elapsed.
  */
 export async function validateSession(
   prisma: PrismaClient,
+  config: Required<SpectraAuthConfig>,
   rawToken: string,
 ): Promise<SpectraAuthResult> {
+  const { logger, sessionMaxAgeSec, sessionUpdateAgeSec } = config;
   try {
     const prefix = rawToken.slice(0, 16);
     const suffix = rawToken.slice(16);
@@ -111,22 +108,25 @@ export async function validateSession(
       };
     }
 
-    // Throttled sliding expiration
+    // "Sliding" expiration logic
     const now = Date.now();
-    const sessionIsDueToBeUpdated =
-      session.expiresAt.getTime() -
-      APP_CONFIG.sessionMaxAgeSec * 1000 +
-      APP_CONFIG.sessionUpdateAgeSec * 1000;
+    const originalExpiresTime = session.expiresAt.getTime();
+    const updateThreshold =
+      originalExpiresTime -
+      sessionMaxAgeSec * 1000 +
+      sessionUpdateAgeSec * 1000;
 
     let updatedSession = session;
 
-    if (now > sessionIsDueToBeUpdated) {
-      const newExpiresAt = new Date(now + APP_CONFIG.sessionMaxAgeSec * 1000);
+    if (now > updateThreshold) {
+      // extend the session
+      const newExpiresAt = new Date(now + sessionMaxAgeSec * 1000);
       updatedSession = (await prisma.session.update({
         where: { id: session.id },
         data: { expiresAt: newExpiresAt },
         include: { user: true },
       })) as AuthSession;
+      logger.info("Session extended", { sessionId: session.id });
     }
 
     return {
@@ -136,6 +136,7 @@ export async function validateSession(
       data: { session: updatedSession },
     };
   } catch (err) {
+    logger.error("Failed to validate session", { error: err });
     return {
       error: true,
       status: 500,
@@ -146,15 +147,13 @@ export async function validateSession(
 
 /**
  * Revokes (invalidates) the session matching the given raw token.
- *
- * @param prisma   - The PrismaClient instance.
- * @param rawToken - The raw session token (prefix+suffix) to revoke.
- * @returns        - A SpectraAuthResult with success or error details.
  */
 export async function revokeSession(
   prisma: PrismaClient,
+  config: Required<SpectraAuthConfig>,
   rawToken: string,
 ): Promise<SpectraAuthResult> {
+  const { logger } = config;
   try {
     const prefix = rawToken.slice(0, 16);
     const suffix = rawToken.slice(16);
@@ -183,6 +182,7 @@ export async function revokeSession(
       where: { id: session.id },
       data: { isRevoked: true },
     });
+    logger.info("Session revoked", { sessionId: session.id });
 
     return {
       error: false,
@@ -190,6 +190,7 @@ export async function revokeSession(
       message: "Session revoked successfully.",
     };
   } catch (err) {
+    logger.error("Failed to revoke session", { error: err });
     return {
       error: true,
       status: 500,

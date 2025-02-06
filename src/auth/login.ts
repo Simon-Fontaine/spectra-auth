@@ -1,8 +1,9 @@
+// src/auth/login.ts
 import type { PrismaClient } from "@prisma/client";
-import { APP_CONFIG } from "../config";
+import type { Ratelimit } from "@upstash/ratelimit";
 import { verifyPassword } from "../crypto/password";
 import type { AuthUser } from "../interfaces";
-import type { SpectraAuthResult } from "../types";
+import type { SpectraAuthConfig, SpectraAuthResult } from "../types";
 import { limitIPAttempts } from "../utils/rateLimit";
 import { loginSchema } from "../validation/authSchemas";
 import { createSession } from "./session";
@@ -38,32 +39,34 @@ export interface LoginOptions {
  * - Enforces IP-based rate-limiting via Upstash.
  * - Checks if the account is locked (failed attempts).
  * - Creates a new session if successful.
- *
- * @param prisma   - The PrismaClient instance.
- * @param options  - The login options containing user credentials, IP, device info.
- * @returns        - A SpectraAuthResult with either success or error details.
  */
 export async function loginUser(
   prisma: PrismaClient,
+  config: Required<SpectraAuthConfig>,
+  rateLimiter: Ratelimit,
   options: LoginOptions,
 ): Promise<SpectraAuthResult> {
   try {
-    // Validate input with Zod
+    const { logger } = config;
+
+    // 1. Validate input with Zod
     const data = loginSchema.parse(options.input);
 
-    // 1. IP-based rate limit
+    // 2. IP-based rate limit
     if (options.ipAddress) {
-      const limit = await limitIPAttempts(options.ipAddress);
+      const limit = await limitIPAttempts(options.ipAddress, rateLimiter);
       if (!limit.success) {
+        logger.warn("IP rate limit exceeded", { ip: options.ipAddress });
         return {
           error: true,
           status: 429,
           message: "Too many attempts from your IP. Try again later.",
+          code: "E_RATE_LIMIT",
         };
       }
     }
 
-    // 2. Check if user exists
+    // 3. Look up user
     const isEmail = data.identifier.includes("@");
     const user = (await prisma.user.findFirst({
       where: isEmail
@@ -72,31 +75,36 @@ export async function loginUser(
     })) as AuthUser | null;
 
     if (!user || user.isBanned) {
+      logger.warn("Invalid credentials or banned user", {
+        identifier: data.identifier,
+      });
       return { error: true, status: 401, message: "Invalid credentials" };
     }
 
-    // 3. If locked, return error
+    // 4. Check lockout
     if (user.lockedUntil && user.lockedUntil > new Date()) {
       const minsLeft = Math.ceil(
         (user.lockedUntil.getTime() - Date.now()) / 60000,
       );
+      logger.warn("Login attempt but user locked", { userId: user.id });
       return {
         error: true,
         status: 423,
         message: `Account locked. Try again in ~${minsLeft} minutes.`,
+        code: "E_LOCKED",
       };
     }
 
-    // 4. Verify password
+    // 5. Verify password
     const isValid = await verifyPassword(user.password, data.password);
     if (!isValid) {
       let newFailedCount = user.failedLoginAttempts + 1;
       let lockedUntil: Date | null = null;
 
-      // If threshold exceeded, lock out
-      if (newFailedCount >= APP_CONFIG.accountLockThreshold) {
-        lockedUntil = new Date(Date.now() + APP_CONFIG.accountLockDurationMs);
-        newFailedCount = 0; // reset or keep counting
+      if (newFailedCount >= config.accountLockThreshold) {
+        lockedUntil = new Date(Date.now() + config.accountLockDurationMs);
+        newFailedCount = 0; // or keep counting if you prefer
+        logger.warn("Lockout triggered", { userId: user.id });
       }
 
       await prisma.user.update({
@@ -109,12 +117,13 @@ export async function loginUser(
       return { error: true, status: 401, message: "Invalid credentials" };
     }
 
-    // 5. Check if email is verified
+    // 6. Check email verified
     if (!user.isEmailVerified) {
+      logger.info("Login attempt on unverified email", { userId: user.id });
       return { error: true, status: 403, message: "Email not verified." };
     }
 
-    // 6. Reset lock state
+    // 7. Reset lock state
     await prisma.user.update({
       where: { id: user.id },
       data: {
@@ -123,8 +132,8 @@ export async function loginUser(
       },
     });
 
-    // 7. Create session
-    const sessionResult = await createSession(prisma, {
+    // 8. Create session
+    const sessionResult = await createSession(prisma, config, {
       userId: user.id,
       deviceInfo: {
         ipAddress: options.ipAddress,
@@ -133,10 +142,12 @@ export async function loginUser(
     });
 
     if (sessionResult.error) {
-      return sessionResult; // propagate error
+      return sessionResult; // propagate error from session creation
     }
 
-    // Return success
+    logger.info("Login success", { userId: user.id });
+
+    // 9. Return success
     return {
       error: false,
       status: 200,
@@ -147,6 +158,7 @@ export async function loginUser(
       },
     };
   } catch (err) {
+    config.logger.error("Unhandled error in loginUser", { error: err });
     return {
       error: true,
       status: 500,

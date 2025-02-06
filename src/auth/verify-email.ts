@@ -1,21 +1,15 @@
 import type { PrismaClient } from "@prisma/client";
 import type { AuthVerification } from "../interfaces";
-import type { SpectraAuthResult } from "../types";
+import type { SpectraAuthConfig, SpectraAuthResult } from "../types";
 import { useVerificationToken } from "./verification";
 
-/**
- * Verifies the user's email by using a token of type EMAIL_VERIFICATION.
- *
- * @param prisma - The PrismaClient instance.
- * @param token  - The raw verification token from the email link.
- * @returns      - A SpectraAuthResult with success or error details.
- */
 export async function verifyEmail(
   prisma: PrismaClient,
+  config: Required<SpectraAuthConfig>,
   token: string,
 ): Promise<SpectraAuthResult> {
   try {
-    const verification = (await useVerificationToken(prisma, {
+    const verification = (await useVerificationToken(prisma, config, {
       token,
       type: "EMAIL_VERIFICATION",
     })) as AuthVerification | null;
@@ -28,12 +22,15 @@ export async function verifyEmail(
       data: { isEmailVerified: true },
     });
 
+    config.logger.info("Email verified", { userId: verification.userId });
+
     return {
       error: false,
       status: 200,
       message: "Email verified.",
     };
   } catch (err) {
+    config.logger.error("Failed to verify email", { error: err });
     return {
       error: true,
       status: 500,

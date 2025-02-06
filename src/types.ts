@@ -28,6 +28,40 @@ export interface SpectraAuthResult {
   data?: Record<string, unknown>;
 }
 
+export interface LoggerInterface {
+  info: (msg: string, meta?: Record<string, unknown>) => void;
+  warn: (msg: string, meta?: Record<string, unknown>) => void;
+  error: (msg: string, meta?: Record<string, unknown>) => void;
+}
+
+export interface SpectraAuthConfig {
+  // Session
+  sessionMaxAgeSec?: number;
+  sessionUpdateAgeSec?: number;
+
+  // Account Lockouts
+  accountLockThreshold?: number;
+  accountLockDurationMs?: number;
+
+  // Rate-limiting
+  rateLimitingStrategy?: RateLimitingStrategy;
+  attempts?: number;
+  windowSeconds?: number;
+
+  // CSRF
+  enableCSRF?: boolean;
+  csrfSecret?: string; // used to generate & verify CSRF tokens
+
+  // Logging
+  logger?: LoggerInterface;
+}
+
+export type VerificationType =
+  | "EMAIL_VERIFICATION"
+  | "PASSWORD_RESET"
+  | "ACCOUNT_DELETION"
+  | "EMAIL_CHANGE";
+
 export type RateLimitingStrategy =
   | "fixedWindow"
   | "slidingWindow"

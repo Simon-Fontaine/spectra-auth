@@ -1,20 +1,16 @@
 import type { PrismaClient } from "@prisma/client";
 import { hashPassword } from "../crypto/password";
 import type { AuthUser } from "../interfaces";
-import type { SpectraAuthResult } from "../types";
+import type { SpectraAuthConfig, SpectraAuthResult } from "../types";
 import { sendPasswordResetEmail } from "./email";
 import { createVerificationToken, useVerificationToken } from "./verification";
 
 /**
- * Initiates a password reset for the specified email address.
- * Sends an email with a unique token.
- *
- * @param prisma - The PrismaClient instance.
- * @param email  - The user’s email address to reset password for.
- * @returns      - A SpectraAuthResult indicating success or error.
+ * Initiates a password reset (optionally logs or reads from config).
  */
 export async function initiatePasswordReset(
   prisma: PrismaClient,
+  config: Required<SpectraAuthConfig>,
   email: string,
 ): Promise<SpectraAuthResult> {
   try {
@@ -29,11 +25,14 @@ export async function initiatePasswordReset(
       };
     }
 
-    const token = await createVerificationToken(prisma, {
+    const token = await createVerificationToken(prisma, config, {
       userId: user.id,
       type: "PASSWORD_RESET",
     });
+
     await sendPasswordResetEmail(email, token);
+
+    config.logger.info("Password reset initiated", { userId: user.id });
 
     return {
       error: false,
@@ -41,6 +40,7 @@ export async function initiatePasswordReset(
       message: "Reset initiated. Check your email.",
     };
   } catch (err) {
+    config.logger.error("Failed to initiate password reset", { error: err });
     return {
       error: true,
       status: 500,
@@ -50,25 +50,20 @@ export async function initiatePasswordReset(
 }
 
 export interface CompleteResetOptions {
-  /** The token from the password reset email. */
   token: string;
-  /** The new plaintext password. */
   newPassword: string;
 }
 
 /**
  * Completes the password reset using a token + new password.
- *
- * @param prisma  - The PrismaClient instance.
- * @param options - { token, newPassword }
- * @returns       - A SpectraAuthResult with success or error details.
  */
 export async function completePasswordReset(
   prisma: PrismaClient,
+  config: Required<SpectraAuthConfig>,
   options: CompleteResetOptions,
 ): Promise<SpectraAuthResult> {
   try {
-    const verification = await useVerificationToken(prisma, {
+    const verification = await useVerificationToken(prisma, config, {
       token: options.token,
       type: "PASSWORD_RESET",
     });
@@ -76,7 +71,6 @@ export async function completePasswordReset(
       return { error: true, status: 400, message: "Invalid or expired token" };
     }
 
-    // Hash the new password
     const hashed = await hashPassword(options.newPassword);
 
     await prisma.$transaction([
@@ -90,12 +84,17 @@ export async function completePasswordReset(
       }),
     ]);
 
+    config.logger.info("Password reset successful", {
+      userId: verification.userId,
+    });
+
     return {
       error: false,
       status: 200,
       message: "Password reset successful.",
     };
   } catch (err) {
+    config.logger.error("Failed to complete password reset", { error: err });
     return {
       error: true,
       status: 500,

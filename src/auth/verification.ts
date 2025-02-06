@@ -1,30 +1,20 @@
 import type { PrismaClient } from "@prisma/client";
 import { getRandomValues } from "uncrypto";
 import type { AuthVerification } from "../interfaces";
-
-export type VerificationType =
-  | "EMAIL_VERIFICATION"
-  | "PASSWORD_RESET"
-  | "ACCOUNT_DELETION"
-  | "EMAIL_CHANGE";
+import type { SpectraAuthConfig, VerificationType } from "../types";
 
 export interface CreateVerificationTokenOptions {
-  /** The user ID. */
   userId: string;
-  /** The type of verification. */
   type: VerificationType;
-  /** Optional expiration (in ms). Defaults to 1 hour if omitted. */
   expiresIn?: number;
 }
 
-/**
- * Creates a new verification token for the specified user.
- * The token is stored in the DB and returned.
- */
 export async function createVerificationToken(
   prisma: PrismaClient,
+  config: Required<SpectraAuthConfig>,
   options: CreateVerificationTokenOptions,
 ): Promise<string> {
+  const { logger } = config;
   const buf = new Uint8Array(32);
   getRandomValues(buf);
   const token = bufferToHex(buf);
@@ -40,25 +30,25 @@ export async function createVerificationToken(
     },
   });
 
+  logger.info("Created verification token", {
+    userId: options.userId,
+    type: options.type,
+  });
+
   return token;
 }
 
 export interface UseVerificationTokenOptions {
-  /** The raw token from the user. */
   token: string;
-  /** The verification type expected. */
   type: VerificationType;
 }
 
-/**
- * Marks the verification token as used, if valid.
- *
- * @returns The updated verification record or null if invalid/expired.
- */
 export async function useVerificationToken(
   prisma: PrismaClient,
+  config: Required<SpectraAuthConfig>,
   options: UseVerificationTokenOptions,
 ) {
+  const { logger } = config;
   const verif = (await prisma.verification.findUnique({
     where: { token: options.token },
   })) as AuthVerification | null;
@@ -68,8 +58,16 @@ export async function useVerificationToken(
     verif.type !== options.type ||
     verif.expiresAt < new Date()
   ) {
+    logger.warn("Invalid or expired verification token", {
+      token: options.token,
+    });
     return null;
   }
+
+  logger.info("Verification token used", {
+    token: options.token,
+    userId: verif.userId,
+  });
 
   return prisma.verification.update({
     where: { id: verif.id },
@@ -77,7 +75,6 @@ export async function useVerificationToken(
   });
 }
 
-/** Helper to convert buffer to hex. */
 function bufferToHex(buf: Uint8Array): string {
   return [...buf].map((b) => b.toString(16).padStart(2, "0")).join("");
 }

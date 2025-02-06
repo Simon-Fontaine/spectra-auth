@@ -1,62 +1,129 @@
 import type { PrismaClient } from "@prisma/client";
-import { loginUser } from "./auth/login";
-import { logoutUser } from "./auth/logout";
-import { registerUser } from "./auth/register";
+import { mergeConfig } from "./config/defaults";
+import { validateEnv } from "./config/envCheck";
 import {
-  completePasswordReset,
-  initiatePasswordReset,
-} from "./auth/reset-password";
-import { createSession, revokeSession, validateSession } from "./auth/session";
+  createCSRFCookie,
+  getCSRFTokenFromCookies,
+  validateCSRFToken,
+} from "./cookies/csrf";
 import {
-  createVerificationToken,
-  useVerificationToken,
-} from "./auth/verification";
+  clearSessionCookie,
+  createSessionCookie,
+  getSessionTokenFromHeader,
+} from "./cookies/simple";
+import {
+  loginUserFactory,
+  logoutUserFactory,
+} from "./internal/loginLogoutFactories";
+import { registerUserFactory } from "./internal/registerFactory";
+import {
+  completePasswordResetFactory,
+  initiatePasswordResetFactory,
+} from "./internal/resetFactories";
+import {
+  createSessionFactory,
+  revokeSessionFactory,
+  validateSessionFactory,
+} from "./internal/sessionFactories";
+import {
+  createVerificationTokenFactory,
+  useVerificationTokenFactory,
+  verifyEmailFactory,
+} from "./internal/verifyFactories";
+import type { SpectraAuthConfig } from "./types";
+import { createRateLimiter } from "./utils/rateLimit";
 
 /**
- * Initializes the Spectra Auth library using a user-provided PrismaClient instance.
+ * initSpectraAuth
  *
- * @param prisma - The Prisma client. Must have User, Session, and Verification models.
- * @returns       An object containing all auth methods.
+ * Main function to configure and obtain all auth methods.
  */
-export function initSpectraAuth(prisma: PrismaClient) {
+export function initSpectraAuth(
+  prisma: PrismaClient,
+  userConfig?: SpectraAuthConfig,
+) {
+  // 1. Validate environment (Upstash keys, etc.)
+  validateEnv();
+
+  // 2. Merge user config with defaults
+  const config = mergeConfig(userConfig);
+
+  // 3. Create a rate limiter instance
+  const rateLimiter = createRateLimiter(
+    config.rateLimitingStrategy,
+    config.attempts,
+    config.windowSeconds,
+  );
+
+  // 4. Build each method with a closure capturing prisma & config
+  const registerUser = registerUserFactory(prisma, config);
+  const loginUser = loginUserFactory(prisma, config, rateLimiter);
+  const logoutUser = logoutUserFactory(prisma, config);
+  const initiatePasswordReset = initiatePasswordResetFactory(prisma, config);
+  const completePasswordReset = completePasswordResetFactory(prisma, config);
+  const createSession = createSessionFactory(prisma, config);
+  const validateSession = validateSessionFactory(prisma, config);
+  const revokeSession = revokeSessionFactory(prisma, config);
+  const createVerificationToken = createVerificationTokenFactory(
+    prisma,
+    config,
+  );
+  const useVerificationToken = useVerificationTokenFactory(prisma, config);
+  const verifyEmail = verifyEmailFactory(prisma, config);
+
+  // 5. Optionally expose CSRF helpers (if enableCSRF is true).
+  //    In your application routes, you can decide whether to enforce them.
+  //    These are lower-level utilities; you can create higher-level helpers if desired.
+  const csrf = {
+    createCSRFCookie: async (sessionToken: string) =>
+      createCSRFCookie(
+        sessionToken,
+        config.csrfSecret,
+        config.sessionMaxAgeSec,
+      ),
+    getCSRFTokenFromCookies,
+    validateCSRFToken: async (
+      sessionToken: string,
+      csrfCookieVal: string,
+      csrfSubmittedVal: string,
+    ) =>
+      validateCSRFToken(
+        sessionToken,
+        config.csrfSecret,
+        csrfCookieVal,
+        csrfSubmittedVal,
+      ),
+  };
+
+  // Also export simple session cookie helpers directly
   return {
-    // =========== LOGIN / LOGOUT ===========
-    loginUser: (options: Parameters<typeof loginUser>[1]) =>
-      loginUser(prisma, options),
+    // Registration
+    registerUser,
 
-    logoutUser: (rawToken: Parameters<typeof logoutUser>[1]) =>
-      logoutUser(prisma, rawToken),
+    // Login / Logout
+    loginUser,
+    logoutUser,
 
-    // =========== REGISTRATION ===========
-    registerUser: (options: Parameters<typeof registerUser>[1]) =>
-      registerUser(prisma, options),
+    // Password reset
+    initiatePasswordReset,
+    completePasswordReset,
 
-    // =========== PASSWORD RESET ===========
-    initiatePasswordReset: (
-      email: Parameters<typeof initiatePasswordReset>[1],
-    ) => initiatePasswordReset(prisma, email),
+    // Sessions
+    createSession,
+    validateSession,
+    revokeSession,
 
-    completePasswordReset: (
-      options: Parameters<typeof completePasswordReset>[1],
-    ) => completePasswordReset(prisma, options),
+    // Verification
+    createVerificationToken,
+    useVerificationToken,
+    verifyEmail,
 
-    // =========== SESSIONS ===========
-    createSession: (options: Parameters<typeof createSession>[1]) =>
-      createSession(prisma, options),
+    // Cookie helpers
+    createSessionCookie,
+    clearSessionCookie,
+    getSessionTokenFromHeader,
 
-    validateSession: (rawToken: Parameters<typeof validateSession>[1]) =>
-      validateSession(prisma, rawToken),
-
-    revokeSession: (rawToken: Parameters<typeof revokeSession>[1]) =>
-      revokeSession(prisma, rawToken),
-
-    // =========== VERIFICATION TOKENS ===========
-    createVerificationToken: (
-      options: Parameters<typeof createVerificationToken>[1],
-    ) => createVerificationToken(prisma, options),
-
-    useVerificationToken: (
-      options: Parameters<typeof useVerificationToken>[1],
-    ) => useVerificationToken(prisma, options),
+    // CSRF helpers
+    csrf,
   };
 }

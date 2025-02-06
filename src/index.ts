@@ -1,5 +1,4 @@
-// Config
-export { APP_CONFIG } from "./config";
+// Project: spectra-auth
 
 // Main types
 export * from "./types";

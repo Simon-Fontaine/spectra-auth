@@ -29,8 +29,8 @@ import {
 import type { SpectraAuthConfig } from "./types";
 import { createRateLimiter } from "./utils/rateLimit";
 
-export function initSpectraAuth(
-  prisma: PrismaClient,
+export function initSpectraAuth<T extends PrismaClient>(
+  prisma: T,
   userConfig?: SpectraAuthConfig,
 ) {
   // 1. Validate environment (Upstash keys, etc.)

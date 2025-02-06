@@ -34,31 +34,36 @@ export interface LoggerInterface {
   error: (msg: string, meta?: Record<string, unknown>) => void;
 }
 
-export interface SpectraAuthConfig {
-  // Session
-  sessionMaxAgeSec?: number;
-  sessionUpdateAgeSec?: number;
+export interface SessionConfig {
+  maxAgeSec: number;
+  updateAgeSec: number;
+}
 
-  // Account Lockouts
-  accountLockThreshold?: number;
-  accountLockDurationMs?: number;
+export interface AccountLockConfig {
+  threshold: number;
+  durationMs: number;
+}
 
-  // Rate-limiting
-  rateLimitingStrategy?: RateLimitingStrategy;
-  attempts?: number;
-  windowSeconds?: number;
-  disableRateLimit?: boolean;
-
-  // Upstash credentials
+export interface RateLimitConfig {
+  strategy: RateLimitingStrategy;
+  attempts: number;
+  windowSeconds: number;
+  disable?: boolean;
   kvRestApiUrl?: string;
   kvRestApiToken?: string;
+}
 
-  // CSRF
-  enableCSRF?: boolean;
-  csrfSecret?: string; // used to generate & verify CSRF tokens
+export interface CSRFConfig {
+  enabled: boolean;
+  secret: string;
+}
 
-  // Logging
-  logger?: LoggerInterface;
+export interface SpectraAuthConfig {
+  session: SessionConfig;
+  accountLock: AccountLockConfig;
+  rateLimit: RateLimitConfig;
+  csrf: CSRFConfig;
+  logger: LoggerInterface;
 }
 
 export type VerificationType =

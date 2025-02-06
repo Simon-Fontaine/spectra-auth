@@ -1,6 +1,5 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
-import { DEFAULT_CONFIG } from "../config/defaults";
 import type { SpectraAuthConfig } from "../types";
 
 /**
@@ -10,20 +9,16 @@ export function createRateLimiter(
   config: SpectraAuthConfig,
   prefix: string,
 ): Ratelimit {
-  const {
-    kvRestApiUrl,
-    kvRestApiToken,
-    rateLimitingStrategy,
-    attempts = DEFAULT_CONFIG.attempts,
-    windowSeconds = DEFAULT_CONFIG.windowSeconds,
-  } = config;
+  const strategy = config.rateLimit.strategy;
+  const attempts = config.rateLimit.attempts;
+  const windowSeconds = config.rateLimit.windowSeconds;
 
   const redis = new Redis({
-    url: kvRestApiUrl,
-    token: kvRestApiToken,
+    url: config.rateLimit.kvRestApiUrl,
+    token: config.rateLimit.kvRestApiToken,
   });
 
-  switch (rateLimitingStrategy) {
+  switch (strategy) {
     case "slidingWindow":
       return new Ratelimit({
         redis,

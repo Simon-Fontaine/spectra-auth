@@ -59,7 +59,7 @@ export async function loginUser(
     const limiterToUse = options.customRateLimiter ?? defaultRateLimiter;
 
     // 2. IP-based rate limit
-    if (options.ipAddress && !config.disableRateLimit && limiterToUse) {
+    if (options.ipAddress && !config.rateLimit.disable && limiterToUse) {
       const limit = await limitIPAttempts(options.ipAddress, limiterToUse);
       if (!limit.success) {
         logger.warn("IP rate limit exceeded", { ip: options.ipAddress });
@@ -107,8 +107,8 @@ export async function loginUser(
       let newFailedCount = user.failedLoginAttempts + 1;
       let lockedUntil: Date | null = null;
 
-      if (newFailedCount >= config.accountLockThreshold) {
-        lockedUntil = new Date(Date.now() + config.accountLockDurationMs);
+      if (newFailedCount >= config.accountLock.threshold) {
+        lockedUntil = new Date(Date.now() + config.accountLock.durationMs);
         newFailedCount = 0; // or keep counting if you prefer
         logger.warn("Lockout triggered", { userId: user.id });
       }

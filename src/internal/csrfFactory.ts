@@ -27,17 +27,17 @@ async function generateCSRFToken(sessionToken: string, secret: string) {
  * capturing config in a closure.
  */
 export function csrfFactory(config: Required<SpectraAuthConfig>): CSRFHelpers {
-  const { csrfSecret, sessionMaxAgeSec, logger } = config;
+  const { csrf, session, logger } = config;
 
   async function createCSRFCookie(sessionToken: string): Promise<string> {
-    const csrfToken = await generateCSRFToken(sessionToken, csrfSecret);
+    const csrfToken = await generateCSRFToken(sessionToken, csrf.secret);
     logger.info("CSRF cookie created");
     return serialize(CSRF_COOKIE_NAME, csrfToken, {
       httpOnly: false, // must be readable by JS
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
       path: "/",
-      maxAge: sessionMaxAgeSec,
+      maxAge: session.maxAgeSec,
     });
   }
 
@@ -55,7 +55,7 @@ export function csrfFactory(config: Required<SpectraAuthConfig>): CSRFHelpers {
     csrfCookieVal: string,
     csrfHeaderOrBodyVal: string,
   ): Promise<boolean> {
-    const expected = await generateCSRFToken(sessionToken, csrfSecret);
+    const expected = await generateCSRFToken(sessionToken, csrf.secret);
     return expected === csrfCookieVal && expected === csrfHeaderOrBodyVal;
   }
 

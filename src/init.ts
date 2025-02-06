@@ -35,8 +35,8 @@ export function initSpectraAuth<T extends PrismaClient>(
   // 2. Merge user config with defaults
   const config = mergeConfig(userConfig);
 
-  if (!config.disableRateLimit) {
-    if (!config.kvRestApiUrl || !config.kvRestApiToken) {
+  if (!config.rateLimit.disable) {
+    if (!config.rateLimit.kvRestApiUrl || !config.rateLimit.kvRestApiToken) {
       throw new Error(
         "Rate limiting is enabled but Upstash credentials are missing",
       );
@@ -44,7 +44,7 @@ export function initSpectraAuth<T extends PrismaClient>(
   }
 
   let rateLimiter: ReturnType<typeof createRateLimiter> | null = null;
-  if (!config.disableRateLimit) {
+  if (!config.rateLimit.disable) {
     rateLimiter = createRateLimiter(config, "login-ip");
   }
 

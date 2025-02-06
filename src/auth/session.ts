@@ -28,13 +28,13 @@ export async function createSession(
   config: Required<SpectraAuthConfig>,
   options: CreateSessionOptions,
 ): Promise<SpectraAuthResult> {
-  const { logger, sessionMaxAgeSec } = config;
+  const { logger, session } = config;
   try {
     // 1. Generate token parts
     const { prefix, suffix } = generateTokenParts();
     const suffixHash = await hashSuffix(suffix);
 
-    const expiresAt = new Date(Date.now() + sessionMaxAgeSec * 1000);
+    const expiresAt = new Date(Date.now() + session.maxAgeSec * 1000);
 
     // 2. Create session
     await prisma.session.create({
@@ -79,7 +79,7 @@ export async function validateSession(
   config: Required<SpectraAuthConfig>,
   rawToken: string,
 ): Promise<SpectraAuthResult> {
-  const { logger, sessionMaxAgeSec, sessionUpdateAgeSec } = config;
+  const { logger } = config;
   try {
     // 1. Extract token parts
     const prefix = rawToken.slice(0, 16);
@@ -118,14 +118,14 @@ export async function validateSession(
     const originalExpiresTime = session.expiresAt.getTime();
     const updateThreshold =
       originalExpiresTime -
-      sessionMaxAgeSec * 1000 +
-      sessionUpdateAgeSec * 1000;
+      config.session.maxAgeSec * 1000 +
+      config.session.updateAgeSec * 1000;
 
     let updatedSession = session;
 
     if (now > updateThreshold) {
       // extend the session
-      const newExpiresAt = new Date(now + sessionMaxAgeSec * 1000);
+      const newExpiresAt = new Date(now + config.session.maxAgeSec * 1000);
       updatedSession = (await prisma.session.update({
         where: { id: session.id },
         data: { expiresAt: newExpiresAt },

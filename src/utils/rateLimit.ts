@@ -14,13 +14,14 @@ export function createRateLimiter(
   strategy: RateLimitingStrategy,
   attempts: number,
   windowSeconds: number,
+  prefix: string,
 ): Ratelimit {
   switch (strategy) {
     case "slidingWindow":
       return new Ratelimit({
         redis,
         limiter: Ratelimit.slidingWindow(attempts, `${windowSeconds} s`),
-        prefix: "login-ip",
+        prefix,
       });
     case "tokenBucket":
       return new Ratelimit({
@@ -30,13 +31,13 @@ export function createRateLimiter(
           `${windowSeconds} s`,
           attempts,
         ),
-        prefix: "login-ip",
+        prefix,
       });
     default:
       return new Ratelimit({
         redis,
         limiter: Ratelimit.fixedWindow(attempts, `${windowSeconds} s`),
-        prefix: "login-ip",
+        prefix,
       });
   }
 }

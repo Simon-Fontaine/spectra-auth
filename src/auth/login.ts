@@ -1,4 +1,3 @@
-// src/auth/login.ts
 import type { PrismaClient } from "@prisma/client";
 import type { Ratelimit } from "@upstash/ratelimit";
 import { verifyPassword } from "../crypto/password";
@@ -31,6 +30,11 @@ export interface LoginOptions {
     browser?: string;
     userAgent?: string;
   };
+  /**
+   * If provided, uses this rate limiter instead of the library’s default.
+   * For example, the user may want a stricter or separate limiter on login.
+   */
+  customRateLimiter?: Ratelimit;
 }
 
 /**
@@ -43,7 +47,7 @@ export interface LoginOptions {
 export async function loginUser(
   prisma: PrismaClient,
   config: Required<SpectraAuthConfig>,
-  rateLimiter: Ratelimit,
+  defaultRateLimiter: Ratelimit,
   options: LoginOptions,
 ): Promise<SpectraAuthResult> {
   try {
@@ -52,9 +56,11 @@ export async function loginUser(
     // 1. Validate input with Zod
     const data = loginSchema.parse(options.input);
 
+    const limiterToUse = options.customRateLimiter ?? defaultRateLimiter;
+
     // 2. IP-based rate limit
     if (options.ipAddress) {
-      const limit = await limitIPAttempts(options.ipAddress, rateLimiter);
+      const limit = await limitIPAttempts(options.ipAddress, limiterToUse);
       if (!limit.success) {
         logger.warn("IP rate limit exceeded", { ip: options.ipAddress });
         return {

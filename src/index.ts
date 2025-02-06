@@ -13,6 +13,9 @@ export * from "./auth/verify-email";
 export * from "./auth/email";
 
 // Crypto
+export * from "./crypto/base64";
+export * from "./crypto/hex";
+export * from "./crypto/hmac";
 export * from "./crypto/password";
 export * from "./crypto/session-token";
 

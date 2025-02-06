@@ -11,15 +11,15 @@ A **credentials-based** authentication solution for Next.js (and other Node.js p
 
 ## Table of Contents
 
-1. [Installation](#1. installation)  
-2. [Prerequisites](#2. prerequisites)  
-3. [Prisma Schema Setup](#3. prisma-schema-setup)  
-4. [Environment Variables](#4. environment-variables)  
-5. [Usage Example](#5. usage-example)  
-6. [Available Methods](#6. available-methods)  
-7. [Security Considerations](#7. security-considerations)
-8. [Testing](#8. testing)  
-9. [License](#9. license)
+1. [Installation](#1-installation)  
+2. [Prerequisites](#2-prerequisites)  
+3. [Prisma Schema Setup](#3-prisma-schema-setup)  
+4. [Environment Variables](#4-environment-variables)  
+5. [Usage Example](#5-usage-example)  
+6. [Available Methods](#6-available-methods)  
+7. [Security Considerations](#7-security-considerations)
+8. [Testing](#8-testing)  
+9. [License](#9-license)
 
 ## 1. Installation
 

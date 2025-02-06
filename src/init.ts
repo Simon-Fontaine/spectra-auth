@@ -1,6 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
 import { mergeConfig } from "./config/defaults";
-import { validateEnv } from "./config/envCheck";
 import {
   clearSessionCookie,
   createSessionCookie,
@@ -33,19 +32,21 @@ export function initSpectraAuth<T extends PrismaClient>(
   prisma: T,
   userConfig?: SpectraAuthConfig,
 ) {
-  // 1. Validate environment (Upstash keys, etc.)
-  validateEnv();
-
   // 2. Merge user config with defaults
   const config = mergeConfig(userConfig);
 
-  // 3. Create a default rate limiter
-  const rateLimiter = createRateLimiter(
-    config.rateLimitingStrategy,
-    config.attempts,
-    config.windowSeconds,
-    "login-ip",
-  );
+  if (!config.disableRateLimit) {
+    if (!config.kvRestApiUrl || !config.kvRestApiToken) {
+      throw new Error(
+        "Rate limiting is enabled but Upstash credentials are missing",
+      );
+    }
+  }
+
+  let rateLimiter: ReturnType<typeof createRateLimiter> | null = null;
+  if (!config.disableRateLimit) {
+    rateLimiter = createRateLimiter(config, "login-ip");
+  }
 
   // 4. Build each auth method using factories
   const registerUser = registerUserFactory(prisma, config);

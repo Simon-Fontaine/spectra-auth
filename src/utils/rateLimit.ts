@@ -1,22 +1,29 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
-import type { RateLimitingStrategy } from "../types";
-
-const redis = new Redis({
-  url: process.env.KV_REST_API_URL,
-  token: process.env.KV_REST_API_TOKEN,
-});
+import { DEFAULT_CONFIG } from "../config/defaults";
+import type { SpectraAuthConfig } from "../types";
 
 /**
  * Create a rate limiter based on the provided strategy.
  */
 export function createRateLimiter(
-  strategy: RateLimitingStrategy,
-  attempts: number,
-  windowSeconds: number,
+  config: SpectraAuthConfig,
   prefix: string,
 ): Ratelimit {
-  switch (strategy) {
+  const {
+    kvRestApiUrl,
+    kvRestApiToken,
+    rateLimitingStrategy,
+    attempts = DEFAULT_CONFIG.attempts,
+    windowSeconds = DEFAULT_CONFIG.windowSeconds,
+  } = config;
+
+  const redis = new Redis({
+    url: kvRestApiUrl,
+    token: kvRestApiToken,
+  });
+
+  switch (rateLimitingStrategy) {
     case "slidingWindow":
       return new Ratelimit({
         redis,

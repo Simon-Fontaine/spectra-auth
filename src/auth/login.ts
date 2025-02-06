@@ -47,7 +47,7 @@ export interface LoginOptions {
 export async function loginUser(
   prisma: PrismaClient,
   config: Required<SpectraAuthConfig>,
-  defaultRateLimiter: Ratelimit,
+  defaultRateLimiter: Ratelimit | null,
   options: LoginOptions,
 ): Promise<SpectraAuthResult> {
   try {
@@ -59,7 +59,7 @@ export async function loginUser(
     const limiterToUse = options.customRateLimiter ?? defaultRateLimiter;
 
     // 2. IP-based rate limit
-    if (options.ipAddress) {
+    if (options.ipAddress && !config.disableRateLimit && limiterToUse) {
       const limit = await limitIPAttempts(options.ipAddress, limiterToUse);
       if (!limit.success) {
         logger.warn("IP rate limit exceeded", { ip: options.ipAddress });

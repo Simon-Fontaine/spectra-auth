@@ -11,7 +11,7 @@ import { createErrorResult } from "../utils/logger";
 export function loginUserFactory(
   prisma: PrismaClient,
   config: Required<SpectraAuthConfig>,
-  rateLimiter: Ratelimit,
+  rateLimiter: Ratelimit | null,
 ) {
   return async (options: LoginOptions) => {
     try {

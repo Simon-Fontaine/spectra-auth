@@ -13,6 +13,11 @@ export const DEFAULT_CONFIG: Required<SpectraAuthConfig> = {
   rateLimitingStrategy: "fixedWindow",
   attempts: 10,
   windowSeconds: 900, // 15 minutes
+  disableRateLimit: false,
+
+  // Upstash credentials
+  kvRestApiUrl: "",
+  kvRestApiToken: "",
 
   // CSRF
   enableCSRF: false,

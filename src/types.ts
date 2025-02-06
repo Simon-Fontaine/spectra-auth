@@ -47,6 +47,11 @@ export interface SpectraAuthConfig {
   rateLimitingStrategy?: RateLimitingStrategy;
   attempts?: number;
   windowSeconds?: number;
+  disableRateLimit?: boolean;
+
+  // Upstash credentials
+  kvRestApiUrl?: string;
+  kvRestApiToken?: string;
 
   // CSRF
   enableCSRF?: boolean;

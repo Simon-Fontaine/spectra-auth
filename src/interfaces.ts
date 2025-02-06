@@ -19,6 +19,7 @@ export interface AuthSession {
   userId: string;
   tokenPrefix: string | null;
   tokenHash: string | null;
+  csrfSecret: string | null;
   isRevoked: boolean;
   expiresAt: Date;
 }

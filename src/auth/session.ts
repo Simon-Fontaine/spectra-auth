@@ -1,4 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
+import { getRandomValues } from "uncrypto";
+import { hex } from "../crypto/hex";
 import {
   generateTokenParts,
   hashSuffix,
@@ -30,9 +32,47 @@ export async function createSession(
 ): Promise<SpectraAuthResult> {
   const { logger, session } = config;
   try {
-    // 1. Generate token parts
+    // 1. (Optional) Enforce concurrency limit
+    if (session.maxSessionsPerUser > 0) {
+      const activeCount = await prisma.session.count({
+        where: {
+          userId: options.userId,
+          isRevoked: false,
+          expiresAt: { gt: new Date() },
+        },
+      });
+
+      if (activeCount >= session.maxSessionsPerUser) {
+        // Revoke the oldest session
+        const oldest = await prisma.session.findFirst({
+          where: {
+            userId: options.userId,
+            isRevoked: false,
+            expiresAt: { gt: new Date() },
+          },
+          orderBy: { createdAt: "asc" }, // oldest first
+        });
+        if (oldest) {
+          await prisma.session.update({
+            where: { id: oldest.id },
+            data: { isRevoked: true },
+          });
+          logger.warn("Revoked oldest session to enforce concurrency limit", {
+            userId: options.userId,
+            oldestSessionId: oldest.id,
+          });
+        }
+      }
+    }
+
+    // 2. Generate session token
     const { prefix, suffix } = generateTokenParts();
     const suffixHash = await hashSuffix(suffix);
+
+    // 3. Also generate a random per-session csrfSecret
+    const csrfSecretArr = new Uint8Array(32);
+    getRandomValues(csrfSecretArr);
+    const csrfSecretHex = hex.encode(csrfSecretArr);
 
     const expiresAt = new Date(Date.now() + session.maxAgeSec * 1000);
 
@@ -42,6 +82,7 @@ export async function createSession(
         userId: options.userId,
         tokenPrefix: prefix,
         tokenHash: suffixHash,
+        csrfSecret: csrfSecretHex,
         expiresAt,
         ipAddress: options.deviceInfo?.ipAddress,
         location: options.deviceInfo?.location,

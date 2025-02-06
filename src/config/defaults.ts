@@ -2,8 +2,9 @@ import type { SpectraAuthConfig } from "../types";
 
 export const DEFAULT_CONFIG: SpectraAuthConfig = {
   session: {
-    maxAgeSec: 30 * 24 * 60 * 60, // 30 days
-    updateAgeSec: 24 * 60 * 60, // 1 day
+    maxAgeSec: 900,
+    updateAgeSec: 0,
+    maxSessionsPerUser: 5,
   },
   accountLock: {
     threshold: 5,
@@ -19,8 +20,9 @@ export const DEFAULT_CONFIG: SpectraAuthConfig = {
   },
   csrf: {
     enabled: true,
-    secret: "CHANGE_ME_IN_PROD",
+    secret: process.env.CSRF_SECRET || "CHANGE_ME_IN_PROD",
   },
+  passwordPepper: process.env.PASSWORD_PEPPER || "CHANGE_ME_IN_PROD",
   logger: console,
 };
 

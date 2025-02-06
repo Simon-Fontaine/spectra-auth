@@ -37,6 +37,7 @@ export interface LoggerInterface {
 export interface SessionConfig {
   maxAgeSec: number;
   updateAgeSec: number;
+  maxSessionsPerUser: number;
 }
 
 export interface AccountLockConfig {
@@ -63,6 +64,7 @@ export interface SpectraAuthConfig {
   accountLock: AccountLockConfig;
   rateLimit: RateLimitConfig;
   csrf: CSRFConfig;
+  passwordPepper: string;
   logger: LoggerInterface;
 }
 

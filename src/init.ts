@@ -28,27 +28,39 @@ import {
 import type { SpectraAuthConfig } from "./types";
 import { createRateLimiter } from "./utils/rateLimit";
 
+/**
+ * Initializes the SpectraAuth library.
+ *
+ * - Merges the default configuration with user-provided values.
+ * - Initializes authentication methods, session handling, and rate-limiting.
+ * - Returns a collection of ready-to-use authentication functions.
+ *
+ * @param prisma - The Prisma client instance.
+ * @param userConfig - Optional user configuration for authentication settings.
+ * @returns An object containing all the authentication methods and utilities.
+ */
 export function initSpectraAuth<T extends PrismaClient>(
   prisma: T,
   userConfig?: SpectraAuthConfig,
 ) {
-  // 2. Merge user config with defaults
+  // Step 1: Merge the user-provided config with defaults
   const config = mergeConfig(userConfig);
 
+  // Step 2: Validate rate limiting configuration if enabled
   if (!config.rateLimit.disable) {
     if (!config.rateLimit.kvRestApiUrl || !config.rateLimit.kvRestApiToken) {
       throw new Error(
-        "Rate limiting is enabled but Upstash credentials are missing",
+        "Rate limiting is enabled, but Upstash credentials are missing.",
       );
     }
   }
 
-  let rateLimiter: ReturnType<typeof createRateLimiter> | null = null;
-  if (!config.rateLimit.disable) {
-    rateLimiter = createRateLimiter(config, "login-ip");
-  }
+  // Step 3: Initialize the rate limiter if enabled
+  const rateLimiter = config.rateLimit.disable
+    ? null
+    : createRateLimiter(config, "login-ip");
 
-  // 4. Build each auth method using factories
+  // Step 4: Initialize authentication methods using factories
   const registerUser = registerUserFactory(prisma, config);
   const loginUser = loginUserFactory(prisma, config, rateLimiter);
   const logoutUser = logoutUserFactory(prisma, config);
@@ -64,11 +76,11 @@ export function initSpectraAuth<T extends PrismaClient>(
   const useVerificationToken = useVerificationTokenFactory(prisma, config);
   const verifyEmail = verifyEmailFactory(prisma, config);
 
-  // 5. Build CSRF methods from the factory
+  // Step 5: Initialize CSRF protection methods
   const { createCSRFCookie, getCSRFTokenFromCookies, validateCSRFToken } =
     csrfFactory(prisma, config);
 
-  // 6. Return everything at top-level
+  // Step 6: Return all methods in a single object
   return {
     // Registration
     registerUser,
@@ -91,12 +103,12 @@ export function initSpectraAuth<T extends PrismaClient>(
     useVerificationToken,
     verifyEmail,
 
-    // Cookies: session
+    // Cookies: session management
     createSessionCookie,
     clearSessionCookie,
     getSessionTokenFromHeader,
 
-    // Cookies: CSRF
+    // Cookies: CSRF protection
     createCSRFCookie,
     getCSRFTokenFromCookies,
     validateCSRFToken,

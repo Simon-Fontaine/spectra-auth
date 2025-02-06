@@ -6,7 +6,15 @@ import type { SpectraAuthConfig } from "../types";
 import { createErrorResult } from "../utils/logger";
 
 /**
- * Wraps loginUser with a closure capturing config + rateLimiter.
+ * Creates a login function with built-in error handling and rate-limiting.
+ *
+ * - Captures the required dependencies through closure.
+ * - Logs unexpected errors and returns a standardized error result.
+ *
+ * @param prisma - The Prisma client instance for database access.
+ * @param config - The authentication configuration.
+ * @param rateLimiter - An optional rate limiter for controlling login attempts.
+ * @returns A login function with error handling.
  */
 export function loginUserFactory(
   prisma: PrismaClient,
@@ -24,7 +32,14 @@ export function loginUserFactory(
 }
 
 /**
- * Wraps logoutUser with a closure capturing config.
+ * Creates a logout function with built-in error handling.
+ *
+ * - Captures the required dependencies through closure.
+ * - Logs unexpected errors and returns a standardized error result.
+ *
+ * @param prisma - The Prisma client instance for database access.
+ * @param config - The authentication configuration.
+ * @returns A logout function with error handling.
  */
 export function logoutUserFactory(
   prisma: PrismaClient,

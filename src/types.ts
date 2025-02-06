@@ -1,30 +1,8 @@
-/**
- * Standard result returned by most library functions.
- */
 export interface SpectraAuthResult {
-  /**
-   * Indicates if an error occurred.
-   */
   error: boolean;
-
-  /**
-   * Numeric HTTP-style status code (e.g., 200, 400, 401, 429, etc.).
-   */
   status: number;
-
-  /**
-   * Human-readable message describing the result.
-   */
   message: string;
-
-  /**
-   * Optional internal code for debugging or logging
-   */
   code?: string;
-
-  /**
-   * Optional data returned on success, such as a token, userId, or other fields.
-   */
   data?: Record<string, unknown>;
 }
 
@@ -32,6 +10,17 @@ export interface LoggerInterface {
   info: (msg: string, meta?: Record<string, unknown>) => void;
   warn: (msg: string, meta?: Record<string, unknown>) => void;
   error: (msg: string, meta?: Record<string, unknown>) => void;
+}
+
+export interface RouteRateLimit {
+  attempts: number;
+  windowSeconds: number;
+}
+
+export interface SensitiveRoutesRateLimitConfig {
+  login?: RouteRateLimit;
+  register?: RouteRateLimit;
+  passwordReset?: RouteRateLimit;
 }
 
 export interface SessionConfig {
@@ -63,6 +52,7 @@ export interface SpectraAuthConfig {
   session: SessionConfig;
   accountLock: AccountLockConfig;
   rateLimit: RateLimitConfig;
+  routeRateLimit: SensitiveRoutesRateLimitConfig;
   csrf: CSRFConfig;
   passwordPepper: string;
   logger: LoggerInterface;

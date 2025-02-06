@@ -1,16 +1,20 @@
-import { ArgonType, hash, verify } from "argon2-browser";
 import { getRandomValues } from "uncrypto";
+import { hashArgon2, verifyArgon2 } from "./argon2Utils";
 
 /**
- * Splits a random 32-byte array into prefix (8 bytes) + suffix (24 bytes).
- * The `prefix` is stored in DB for quick lookups; `suffix` is only stored hashed.
+ * Splits a randomly generated 32-byte array into a prefix and suffix.
+ *
+ * - The `prefix` (8 bytes) is stored in the database for quick token lookups.
+ * - The `suffix` (24 bytes) is only stored as a securely hashed value.
+ *
+ * @returns An object containing the token `prefix` and `suffix`.
  */
 export function generateTokenParts(): { prefix: string; suffix: string } {
   const buf = new Uint8Array(32);
   getRandomValues(buf);
 
-  const prefixBytes = buf.slice(0, 8); // 8 bytes => 16 hex chars
-  const suffixBytes = buf.slice(8, 32); // 24 bytes => 48 hex chars
+  const prefixBytes = buf.slice(0, 8); // 8 bytes => 16 hex characters
+  const suffixBytes = buf.slice(8, 32); // 24 bytes => 48 hex characters
 
   return {
     prefix: bufferToHex(prefixBytes),
@@ -19,46 +23,43 @@ export function generateTokenParts(): { prefix: string; suffix: string } {
 }
 
 /**
- * Hashes the suffix using Argon2 with a random salt (WASM-compatible).
- * We'll store the entire Argon2-encoded string (which includes the salt).
+ * Hashes the token suffix using Argon2id.
+ *
+ * - Argon2 hashing adds computational cost to deter brute-force attacks.
+ * - Uses a random salt and parameters optimized for WASM environments.
+ *
+ * @param suffix - The token suffix to be securely hashed.
+ * @returns A promise resolving to the Argon2-encoded string.
  */
 export async function hashSuffix(suffix: string): Promise<string> {
-  const result = await hash({
-    pass: suffix,
-    salt: generateRandomSalt(16),
-    type: ArgonType.Argon2id,
-    mem: 1024,
-    time: 2, // Lower cost than password hashing (since ephemeral)
-    parallelism: 1,
+  return hashArgon2(suffix, {
+    mem: 2048, // Increased memory usage for better security
+    time: 3, // Increased iterations for higher resistance to cracking
+    parallelism: 1, // Single thread (WASM-friendly)
+    saltSize: 16, // 128-bit salt for randomness
   });
-  return result.encoded;
 }
 
 /**
- * Verifies the suffix against the stored Argon2 hash.
+ * Verifies the token suffix against the stored Argon2 hash.
+ *
+ * @param storedHash - The Argon2-encoded hash stored in the database.
+ * @param suffix - The plain suffix to be verified.
+ * @returns A promise resolving to `true` if the suffix is valid, otherwise `false`.
  */
 export async function verifySuffixHash(
   storedHash: string,
   suffix: string,
 ): Promise<boolean> {
-  try {
-    await verify({
-      pass: suffix,
-      encoded: storedHash,
-      type: ArgonType.Argon2id,
-    });
-    return true;
-  } catch {
-    return false;
-  }
+  return verifyArgon2(storedHash, suffix);
 }
 
-function generateRandomSalt(bytes: number): Uint8Array {
-  const salt = new Uint8Array(bytes);
-  getRandomValues(salt);
-  return salt;
-}
-
+/**
+ * Converts a Uint8Array buffer into a hexadecimal string.
+ *
+ * @param buf - The buffer to convert.
+ * @returns The hexadecimal representation of the buffer.
+ */
 function bufferToHex(buf: Uint8Array): string {
   return [...buf].map((b) => b.toString(16).padStart(2, "0")).join("");
 }

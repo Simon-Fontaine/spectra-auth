@@ -1,7 +1,9 @@
 import { serialize } from "cookie";
 
 /**
- * Determines the session cookie name based on environment.
+ * Determines the session cookie name based on the environment.
+ *
+ * @returns The appropriate cookie name for the session.
  */
 function getCookieName(): string {
   return process.env.NODE_ENV === "production"
@@ -10,8 +12,13 @@ function getCookieName(): string {
 }
 
 /**
- * Creates a session cookie with the given raw token and max age (in seconds).
- * Uses secure + httpOnly flags in production for better security.
+ * Creates a session cookie with the given raw token and maximum age.
+ *
+ * - Uses secure and httpOnly flags in production for better security.
+ *
+ * @param rawToken - The session token to store.
+ * @param maxAgeSeconds - The duration (in seconds) the cookie should be valid.
+ * @returns A serialized session cookie.
  */
 export function createSessionCookie(
   rawToken: string,
@@ -27,7 +34,9 @@ export function createSessionCookie(
 }
 
 /**
- * Clears the session cookie by setting it to an empty string, with maxAge=0.
+ * Clears the session cookie by setting its value to an empty string and maxAge to 0.
+ *
+ * @returns A serialized cookie that will clear the session.
  */
 export function clearSessionCookie(): string {
   return serialize(getCookieName(), "", {
@@ -40,7 +49,10 @@ export function clearSessionCookie(): string {
 }
 
 /**
- * Extracts the session token from the cookie header (if present).
+ * Extracts the session token from the cookie header if present.
+ *
+ * @param cookieHeader - The raw cookie header from the request.
+ * @returns The session token or null if not found.
  */
 export function getSessionTokenFromHeader(
   cookieHeader: string | null,

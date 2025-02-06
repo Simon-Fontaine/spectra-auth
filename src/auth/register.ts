@@ -28,7 +28,7 @@ export async function registerUser(
     const data = registerSchema.parse(options);
 
     // 2. Hash password
-    const hashed = await hashPassword(data.password);
+    const hashed = await hashPassword(data.password, config);
 
     // 3. Create user
     const user = (await prisma.user.create({

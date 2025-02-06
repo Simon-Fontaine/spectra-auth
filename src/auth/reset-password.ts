@@ -75,7 +75,7 @@ export async function completePasswordReset(
       return { error: true, status: 400, message: "Invalid or expired token" };
     }
 
-    const hashed = await hashPassword(options.newPassword);
+    const hashed = await hashPassword(options.newPassword, config);
 
     await prisma.$transaction([
       prisma.user.update({

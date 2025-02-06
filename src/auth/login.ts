@@ -102,7 +102,7 @@ export async function loginUser(
     }
 
     // 5. Verify password
-    const isValid = await verifyPassword(user.password, data.password);
+    const isValid = await verifyPassword(user.password, data.password, config);
     if (!isValid) {
       let newFailedCount = user.failedLoginAttempts + 1;
       let lockedUntil: Date | null = null;

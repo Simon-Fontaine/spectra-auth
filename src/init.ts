@@ -66,7 +66,7 @@ export function initSpectraAuth<T extends PrismaClient>(
 
   // 5. Build CSRF methods from the factory
   const { createCSRFCookie, getCSRFTokenFromCookies, validateCSRFToken } =
-    csrfFactory(config);
+    csrfFactory(prisma, config);
 
   // 6. Return everything at top-level
   return {

@@ -11,14 +11,14 @@ export const DEFAULT_CONFIG: SpectraAuthConfig = {
   },
   rateLimit: {
     strategy: "fixedWindow",
-    attempts: 10,
-    windowSeconds: 900, // 15 minutes
+    attempts: 5,
+    windowSeconds: 600, // 10 minutes
     disable: false,
     kvRestApiUrl: "",
     kvRestApiToken: "",
   },
   csrf: {
-    enabled: false,
+    enabled: true,
     secret: "CHANGE_ME_IN_PROD",
   },
   logger: console,

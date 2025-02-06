@@ -5,6 +5,7 @@ A **credentials-based** authentication solution for Next.js (and other Node.js p
 - **Database-backed sessions** (stored in [Prisma](https://www.prisma.io/))
 - **IP rate-limiting** (powered by [Upstash Redis](https://upstash.com/))
 - **Automatic account lockouts** after too many failed attempts
+- **CSRF protection** to mitigate Cross-Site Request Forgery attacks
 - **Email verification** and **password reset** flows
 - Designed to integrate easily with **your own Prisma schema**, with minimal required fields
 
@@ -16,8 +17,9 @@ A **credentials-based** authentication solution for Next.js (and other Node.js p
 4. [Environment Variables](#environment-variables)  
 5. [Usage Example](#usage-example)  
 6. [Available Methods](#available-methods)  
-7. [Testing](#testing)  
-8. [License](#license)
+7. [Security Considerations](#security-considerations)
+8. [Testing](#testing)  
+9. [License](#license)
 
 ## 1. Installation
 
@@ -76,7 +78,7 @@ model Session {
   expiresAt   DateTime
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  // Optional device info:
+  // Optional device info
   ipAddress   String?
   location    String?
   country     String?
@@ -110,6 +112,8 @@ model Verification {
 Once updated, run:
 
 ```bash
+npx prisma generate # Important: regenerate Prisma client after schema changes
+
 npx prisma db push
 # or:
 npx prisma migrate dev
@@ -130,6 +134,13 @@ NODE_ENV="production"
 
 - **`KV_REST_API_URL`** and **`KV_REST_API_TOKEN`** are **required** if you’re actually using rate-limiting in production.  
 
+**Configuration:**
+
+You can customize the behavior of Spectra Auth by passing a configuration object to `initSpectraAuth()`. This allows you to adjust settings like session expiration, account lockout thresholds, rate limiting parameters, and more. See the `src/config/defaults.ts` file for the default configuration and available options.
+
+**Important Security Notes:**
+It is **highly recommended** to configure rate limiting and **essential** to utilize CSRF protection in production environments. Ensure you set strong, unique secrets for CSRF and rotate them periodically.
+
 ## 5. Usage Example
 
 Below is a minimal example using **Express**-style pseudocode. The same logic applies in Next.js or any Node environment:
@@ -137,7 +148,7 @@ Below is a minimal example using **Express**-style pseudocode. The same logic ap
 ```ts
 // src/server.ts
 import express from "express";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, User } from "@prisma/client";
 import { initSpectraAuth, createSessionCookie, clearSessionCookie, getSessionTokenFromHeader } from "spectra-auth";
 
 const app = express();
@@ -146,15 +157,27 @@ app.use(express.json());
 const prisma = new PrismaClient();
 const auth = initSpectraAuth(prisma);
 
+// Simple middleware to check CSRF token (example)
+async function csrfMiddleware(req, res, next) {
+  if (req.method === 'POST' || req.method === 'PUT' || req.method === 'DELETE') {
+    const sessionToken = getSessionTokenFromHeader(req.headers.cookie ?? null);
+    const csrfCookie = auth.getCSRFTokenFromCookies(req.headers.cookie);
+    const csrfHeader = req.headers['x-csrf-token'] || req.body._csrf; // Or get from body
+
+    if (!sessionToken || !csrfCookie || !csrfHeader || !(await auth.validateCSRFToken(sessionToken, csrfCookie, String(csrfHeader)))) {
+      return res.status(403).json({ message: "CSRF validation failed" });
+    }
+  }
+  next();
+}
+app.use(csrfMiddleware); // Apply CSRF middleware globally or per-route
+
 // Login endpoint
 app.post("/login", async (req, res) => {
   const { identifier, password } = req.body;
   const ipAddress = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
 
-  const result = await auth.loginUser({
-    input: { identifier, password },
-    ipAddress: String(ipAddress),
-  });
+  const result = await auth.loginUser({ input: { identifier, password }, ipAddress: String(ipAddress) });
 
   if (result.error) {
     return res.status(result.status).json({ message: result.message });
@@ -164,8 +187,12 @@ app.post("/login", async (req, res) => {
   const rawToken = result.data?.rawToken as string;
 
   // Here we use createSessionCookie from the library
-  const cookieStr = createSessionCookie(rawToken, 30 * 24 * 60 * 60); // 30 days
+  let cookieStr = createSessionCookie(rawToken, 30 * 24 * 60 * 60); // 30 days session cookie
 
+  // Create CSRF cookie alongside session cookie
+  const csrfCookieStr = await auth.createCSRFCookie(rawToken);
+
+  cookieStr = [cookieStr, csrfCookieStr].join('; '); // Combine session and CSRF cookies
   // Return a Set-Cookie header. In Express, you can do res.setHeader or res.set.
   res.setHeader("Set-Cookie", cookieStr);
 
@@ -208,7 +235,11 @@ app.post("/logout", async (req, res) => {
   }
 
   // Clear the session cookie
-  const clearStr = clearSessionCookie();
+  let clearStr = clearSessionCookie();
+
+  const clearCsrfStr = await auth.createCSRFCookie("", 0); // Clear CSRF cookie too by setting max-age=0
+
+  clearStr = [clearStr, clearCsrfStr].join('; ');
   res.setHeader("Set-Cookie", clearStr);
 
   res.status(result.status).json({ message: "Logged out" });
@@ -239,6 +270,10 @@ When you call `initSpectraAuth(prisma)`, you get an object with these methods:
 5. **Password Reset**  
    - `initiatePasswordReset(email)`
    - `completePasswordReset({ token, newPassword })`
+6. **CSRF Protection**
+    - `createCSRFCookie(sessionToken: string)`
+    - `getCSRFTokenFromCookies(cookieHeader: string | undefined)`
+    - `validateCSRFToken(sessionToken: string, csrfCookieVal: string, csrfSubmittedVal: string)`
 
 Each returns a **`SpectraAuthResult`**:
 
@@ -251,6 +286,34 @@ interface SpectraAuthResult {
 }
 ```
 
-## 7. License
+## 7. Security Considerations
+
+**CSRF Protection is now enabled by default.**  It is **strongly recommended** to implement CSRF protection in your application's frontend for all state-changing requests (POST, PUT, DELETE).
+
+**How to Implement CSRF Protection in Frontend (Example with Fetch API):**
+
+1. **Read CSRF Token from Cookie:** After successful login, the server sets both a session cookie and a `spectra.csrfToken` cookie. In your frontend JavaScript, read the `spectra.csrfToken` cookie value.
+2. **Include CSRF Token in Request Header:** For every `POST`, `PUT`, or `DELETE` request that modifies data or state on the server, include the CSRF token in a custom header (e.g., `X-CSRF-Token`).
+
+```javascript
+async function submitForm(data) {
+  const csrfToken = getCookie('spectra.csrfToken'); // You'll need a getCookie helper
+
+  const response = await fetch('/your-api-endpoint', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRF-Token': csrfToken, // Include CSRF token in header
+    },
+    body: JSON.stringify(data),
+  });
+};
+```
+
+## 8. Testing
+
+...
+
+## 9. License
 
 [MIT License](./LICENSE) © 2025 [Simon Fontaine](https://github.com/Simon-Fontaine)

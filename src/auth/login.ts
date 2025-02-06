@@ -16,30 +16,27 @@ import { createSession } from "./session";
  *
  * @param prisma - The Prisma client instance.
  * @param config - Authentication configuration with logger and security policies.
- * @param defaultRateLimiter - Global rate limiter fallback.
  * @param options - Login options including credentials and device metadata.
  * @returns A result indicating success or failure of the login operation.
  */
 export async function loginUser(
   prisma: PrismaClient,
   config: Required<SpectraAuthConfig>,
-  defaultRateLimiter: Ratelimit | null,
   options: LoginOptions,
 ): Promise<SpectraAuthResult> {
   try {
     const { logger } = config;
 
-    // Step 1: Determine rate limiter to use (route-specific, custom, or default)
+    // Step 1: Enforce IP-based rate limiting if applicable
+    const ip = options.ipAddress;
     const routeLimiter = createRouteRateLimiter("login", config);
-    const limiterToUse =
-      routeLimiter ?? options.customRateLimiter ?? defaultRateLimiter;
 
     // Step 2: Enforce IP-based rate-limiting if IP address is available
-    if (options.ipAddress && !config.rateLimit.disable && limiterToUse) {
-      const limit = await limitIPAttempts(options.ipAddress, limiterToUse);
+    if (ip && routeLimiter) {
+      const limit = await limitIPAttempts(ip, routeLimiter);
       if (!limit.success) {
         logger.warn("IP rate limit exceeded on login", {
-          ip: options.ipAddress,
+          ip: ip,
         });
         return {
           error: true,
@@ -87,7 +84,7 @@ export async function loginUser(
     if (!isValid) {
       logger.info("Failed password attempt", {
         userId: user.id,
-        ip: options.ipAddress,
+        ip: ip,
       });
       let newFailedCount = user.failedLoginAttempts + 1;
       let lockedUntil: Date | null = null;
@@ -121,7 +118,7 @@ export async function loginUser(
     const sessionResult = await createSession(prisma, config, {
       userId: user.id,
       deviceInfo: {
-        ipAddress: options.ipAddress,
+        ipAddress: ip,
         ...options.deviceInfo,
       },
     });

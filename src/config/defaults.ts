@@ -17,9 +17,6 @@ export const DEFAULT_CONFIG: SpectraAuthConfig = {
     durationMs: 15 * 60 * 1000, // 15-minute lock duration
   },
   rateLimit: {
-    strategy: "fixedWindow", // Fixed window rate limiting strategy
-    attempts: 5, // 5 attempts allowed per window
-    windowSeconds: 600, // 10-minute rate-limiting window
     disable: false, // Rate limiting enabled
     kvRestApiUrl: "", // Placeholder for Upstash REST API URL
     kvRestApiToken: "", // Placeholder for Upstash API token

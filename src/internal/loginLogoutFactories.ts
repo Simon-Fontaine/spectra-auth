@@ -1,5 +1,4 @@
 import type { PrismaClient } from "@prisma/client";
-import type { Ratelimit } from "@upstash/ratelimit";
 import { type LoginOptions, loginUser } from "../auth/login";
 import { logoutUser } from "../auth/logout";
 import type { SpectraAuthConfig } from "../types";
@@ -13,17 +12,15 @@ import { createErrorResult } from "../utils/logger";
  *
  * @param prisma - The Prisma client instance for database access.
  * @param config - The authentication configuration.
- * @param rateLimiter - An optional rate limiter for controlling login attempts.
  * @returns A login function with error handling.
  */
 export function loginUserFactory(
   prisma: PrismaClient,
   config: Required<SpectraAuthConfig>,
-  rateLimiter: Ratelimit | null,
 ) {
   return async (options: LoginOptions) => {
     try {
-      return await loginUser(prisma, config, rateLimiter, options);
+      return await loginUser(prisma, config, options);
     } catch (err) {
       config.logger.error("Unexpected error in loginUserFactory", { err });
       return createErrorResult(500, (err as Error).message || "Login error");

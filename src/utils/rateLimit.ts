@@ -1,6 +1,6 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
-import type { SpectraAuthConfig } from "../types";
+import type { RateLimitingStrategy, SpectraAuthConfig } from "../types";
 
 /**
  * Creates a rate limiter based on the configured strategy.
@@ -9,15 +9,20 @@ import type { SpectraAuthConfig } from "../types";
  * - Utilizes Upstash Redis for distributed rate limiting.
  *
  * @param config - The SpectraAuth configuration object.
+ * @param attempts - The number of attempts allowed within the window.
+ * @param windowSeconds - The duration of the rate-limiting window in seconds.
+ * @param strategy - The rate-limiting strategy to use.
  * @param prefix - A prefix to distinguish rate limiters (e.g., by route or action).
  * @returns A configured Ratelimit instance.
  */
 export function createRateLimiter(
   config: SpectraAuthConfig,
+  attempts: number,
+  windowSeconds: number,
+  strategy: RateLimitingStrategy,
   prefix: string,
 ): Ratelimit {
-  const { strategy, attempts, windowSeconds, kvRestApiUrl, kvRestApiToken } =
-    config.rateLimit;
+  const { kvRestApiUrl, kvRestApiToken } = config.rateLimit;
 
   // Validate configuration values
   if (attempts <= 0 || windowSeconds <= 0) {
@@ -74,28 +79,13 @@ export function createRouteRateLimiter(
   // If no override is specified for the route, return null
   if (!override) return null;
 
-  // Ensure Upstash credentials are present
-  if (!config.rateLimit.kvRestApiUrl || !config.rateLimit.kvRestApiToken) {
-    throw new Error(
-      `Route Rate Limiter for ${String(
-        routeKey,
-      )} requires Upstash credentials.`,
-    );
-  }
-
-  const redis = new Redis({
-    url: config.rateLimit.kvRestApiUrl,
-    token: config.rateLimit.kvRestApiToken,
-  });
-
-  return new Ratelimit({
-    redis,
-    limiter: Ratelimit.fixedWindow(
-      override.attempts,
-      `${override.windowSeconds} s`,
-    ),
-    prefix: `spectra-route:${String(routeKey)}`,
-  });
+  return createRateLimiter(
+    config,
+    override.attempts,
+    override.windowSeconds,
+    "fixedWindow",
+    `spectra-route:${String(routeKey)}`,
+  );
 }
 
 /**

@@ -35,9 +35,6 @@ export interface AccountLockConfig {
 }
 
 export interface RateLimitConfig {
-  strategy: RateLimitingStrategy;
-  attempts: number;
-  windowSeconds: number;
   disable?: boolean;
   kvRestApiUrl?: string;
   kvRestApiToken?: string;

@@ -15,7 +15,7 @@
     "test": "vitest",
     "typecheck": "tsc --noEmit",
     "lint": "biome check . --write",
-    "clean": "rmdir /s /q dist",
+    "clean": "rimraf dist",
     "prepublishOnly": "pnpm run clean && pnpm run build"
   },
   "dependencies": {
@@ -30,6 +30,7 @@
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
     "@types/node": "^22.13.1",
+    "rimraf": "^6.0.1",
     "typescript": "^5.7.3",
     "vitest": "^3.0.5"
   },

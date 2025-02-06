@@ -121,14 +121,14 @@ Spectra Auth uses Upstash for IP-based rate-limiting. You must set these environ
 
 ```bash
 # .env
-UPSTASH_REDIS_REST_URL="<YOUR_UPSTASH_REDIS_REST_URL>"
-UPSTASH_REDIS_REST_TOKEN="<YOUR_UPSTASH_REDIS_TOKEN>"
+KV_REST_API_URL="<YOUR_KV_REST_API_URL>"
+KV_REST_API_TOKEN="<YOUR_KV_REST_API_TOKEN>"
 
 # Optional:
 NODE_ENV="production"
 ```
 
-- **`UPSTASH_REDIS_REST_URL`** and **`UPSTASH_REDIS_REST_TOKEN`** are **required** if you’re actually using rate-limiting in production.  
+- **`KV_REST_API_URL`** and **`KV_REST_API_TOKEN`** are **required** if you’re actually using rate-limiting in production.  
 
 ## 5. Usage Example
 

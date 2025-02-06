@@ -1,6 +1,6 @@
 {
   "name": "spectra-auth",
-  "version": "2.0.1",
+  "version": "0.0.0",
   "description": "A credentials-based auth solution for Next.js (and other Node projects) with IP rate-limiting, account lockouts, and sessions in DB.",
   "license": "MIT",
   "author": {

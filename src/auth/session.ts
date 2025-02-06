@@ -30,11 +30,13 @@ export async function createSession(
 ): Promise<SpectraAuthResult> {
   const { logger, sessionMaxAgeSec } = config;
   try {
+    // 1. Generate token parts
     const { prefix, suffix } = generateTokenParts();
     const suffixHash = await hashSuffix(suffix);
 
     const expiresAt = new Date(Date.now() + sessionMaxAgeSec * 1000);
 
+    // 2. Create session
     await prisma.session.create({
       data: {
         userId: options.userId,
@@ -79,9 +81,11 @@ export async function validateSession(
 ): Promise<SpectraAuthResult> {
   const { logger, sessionMaxAgeSec, sessionUpdateAgeSec } = config;
   try {
+    // 1. Extract token parts
     const prefix = rawToken.slice(0, 16);
     const suffix = rawToken.slice(16);
 
+    // 2. Find session
     const session = (await prisma.session.findFirst({
       where: {
         tokenPrefix: prefix,
@@ -99,6 +103,7 @@ export async function validateSession(
       };
     }
 
+    // 3. Verify suffix hash
     const match = await verifySuffixHash(session.tokenHash, suffix);
     if (!match) {
       return {
@@ -108,7 +113,7 @@ export async function validateSession(
       };
     }
 
-    // "Sliding" expiration logic
+    // 4. Check if session needs renewal (sliding expiration)
     const now = Date.now();
     const originalExpiresTime = session.expiresAt.getTime();
     const updateThreshold =
@@ -155,9 +160,11 @@ export async function revokeSession(
 ): Promise<SpectraAuthResult> {
   const { logger } = config;
   try {
+    // 1. Extract token parts
     const prefix = rawToken.slice(0, 16);
     const suffix = rawToken.slice(16);
 
+    // 2. Find and revoke session
     const session = (await prisma.session.findFirst({
       where: {
         tokenPrefix: prefix,
@@ -169,6 +176,7 @@ export async function revokeSession(
       return { error: true, status: 404, message: "Session not found." };
     }
 
+    // 3. Verify suffix hash
     const match = await verifySuffixHash(session.tokenHash, suffix);
     if (!match) {
       return {
@@ -178,6 +186,7 @@ export async function revokeSession(
       };
     }
 
+    // 4. Revoke session
     await prisma.session.update({
       where: { id: session.id },
       data: { isRevoked: true },

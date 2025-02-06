@@ -1,7 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import { hashPassword } from "../crypto/password";
 import type { AuthUser } from "../interfaces";
-import type { SpectraAuthResult } from "../types";
+import type { SpectraAuthConfig, SpectraAuthResult } from "../types";
 import { registerSchema } from "../validation/authSchemas";
 import { sendVerificationEmail } from "./email";
 import { createVerificationToken } from "./verification";
@@ -17,22 +17,20 @@ export interface RegisterOptions {
 
 /**
  * Registers a new user and sends an email verification link.
- *
- * @param prisma   - The PrismaClient instance.
- * @param options  - { username, email, password }
- * @returns        - A SpectraAuthResult with success or error details.
  */
 export async function registerUser(
   prisma: PrismaClient,
+  config: Required<SpectraAuthConfig>,
   options: RegisterOptions,
 ): Promise<SpectraAuthResult> {
   try {
+    // 1. Validate input
     const data = registerSchema.parse(options);
 
-    // Hash password
+    // 2. Hash password
     const hashed = await hashPassword(data.password);
 
-    // Create user
+    // 3. Create user
     const user = (await prisma.user.create({
       data: {
         username: data.username,
@@ -41,14 +39,16 @@ export async function registerUser(
       },
     })) as AuthUser;
 
-    // Create email verification token
-    const token = await createVerificationToken(prisma, {
+    // 4. Create email verification token
+    const token = await createVerificationToken(prisma, config, {
       userId: user.id,
       type: "EMAIL_VERIFICATION",
     });
 
-    // Send email
+    // 5. Send email
     await sendVerificationEmail(data.email, token);
+
+    config.logger.info("New user registered", { userId: user.id });
 
     return {
       error: false,
@@ -57,6 +57,7 @@ export async function registerUser(
       data: { userId: user.id },
     };
   } catch (err) {
+    config.logger.error("Registration error", { error: err });
     return {
       error: true,
       status: 500,

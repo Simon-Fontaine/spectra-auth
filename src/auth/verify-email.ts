@@ -9,6 +9,7 @@ export async function verifyEmail(
   token: string,
 ): Promise<SpectraAuthResult> {
   try {
+    // 1. Use verification token
     const verification = (await useVerificationToken(prisma, config, {
       token,
       type: "EMAIL_VERIFICATION",
@@ -17,6 +18,7 @@ export async function verifyEmail(
       return { error: true, status: 400, message: "Invalid or expired token" };
     }
 
+    // 2. Update user email verification status
     await prisma.user.update({
       where: { id: verification.userId },
       data: { isEmailVerified: true },

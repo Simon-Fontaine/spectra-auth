@@ -32,7 +32,7 @@ export function logoutUserFactory(
 ) {
   return async (rawToken: string) => {
     try {
-      return await logoutUser(prisma, rawToken);
+      return await logoutUser(prisma, config, rawToken);
     } catch (err) {
       config.logger.error("Unexpected error in logoutUserFactory", { err });
       return createErrorResult(500, (err as Error).message || "Logout error");

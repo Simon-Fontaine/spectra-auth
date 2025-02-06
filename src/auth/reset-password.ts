@@ -14,9 +14,11 @@ export async function initiatePasswordReset(
   email: string,
 ): Promise<SpectraAuthResult> {
   try {
+    // 1. Find user by email
     const user = (await prisma.user.findUnique({
       where: { email },
     })) as AuthUser | null;
+
     if (!user) {
       return {
         error: false,
@@ -25,11 +27,13 @@ export async function initiatePasswordReset(
       };
     }
 
+    // 2. Create verification token
     const token = await createVerificationToken(prisma, config, {
       userId: user.id,
       type: "PASSWORD_RESET",
     });
 
+    // 3. Send email
     await sendPasswordResetEmail(email, token);
 
     config.logger.info("Password reset initiated", { userId: user.id });

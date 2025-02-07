@@ -82,7 +82,7 @@ export async function completePasswordReset(
     const ip = options.ipAddress;
 
     // Step 1: Enforce IP-based rate limiting if applicable
-    const routeLimiter = createRouteRateLimiter("passwordReset", config);
+    const routeLimiter = createRouteRateLimiter("passwordResetRoute", config);
     if (routeLimiter && ip) {
       const limit = await limitIPAttempts(ip, routeLimiter);
       if (!limit.success) {

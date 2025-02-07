@@ -5,17 +5,20 @@ import {
   initiatePasswordReset,
 } from "../auth/reset-password";
 import type { SpectraAuthConfig } from "../types";
-import { createErrorResult } from "../utils/logger";
+import { formatErrorResult } from "../utils/formatResult";
 
 /**
- * Creates a function to initiate the password reset process with error handling.
+ * Creates a factory function for initiating password reset processes.
  *
- * - Sends a password reset email with a verification token.
- * - Captures dependencies such as Prisma and configuration via closure.
+ * @param prisma - The Prisma client instance used for database operations
+ * @param config - The complete Spectra Auth configuration object
+ * @returns An async function that takes an email address and initiates a password reset process
  *
- * @param prisma - The Prisma client instance for database access.
- * @param config - The authentication configuration.
- * @returns A function to initiate password resets with error handling.
+ * @throws Will return a formatted error result if password reset initiation fails
+ *
+ * @example
+ * const resetPasswordFn = initiatePasswordResetFactory(prismaClient, authConfig);
+ * await resetPasswordFn('user@example.com');
  */
 export function initiatePasswordResetFactory(
   prisma: PrismaClient,
@@ -25,27 +28,29 @@ export function initiatePasswordResetFactory(
     try {
       return await initiatePasswordReset(prisma, config, email);
     } catch (err) {
-      config.logger.error("Error in initiatePasswordResetFactory", {
-        email,
-        error: err,
-      });
-      return createErrorResult(
+      return formatErrorResult(
+        config,
+        err,
+        "Error in initiatePasswordResetFactory",
+        "Password reset initiation failed",
         500,
-        (err as Error).message || "Password reset initiation failed",
       );
     }
   };
 }
 
 /**
- * Creates a function to complete the password reset process with error handling.
+ * Creates a factory function for completing password reset operations.
  *
- * - Verifies the reset token and updates the user's password.
- * - Captures dependencies such as Prisma and configuration via closure.
+ * @param prisma - The Prisma client instance used for database operations
+ * @param config - The complete Spectra Auth configuration object
+ * @returns An async function that handles password reset completion
  *
- * @param prisma - The Prisma client instance for database access.
- * @param config - The authentication configuration.
- * @returns A function to complete password resets with error handling.
+ * @throws Will return a formatted error result if password reset completion fails
+ *
+ * @example
+ * const completeReset = completePasswordResetFactory(prisma, config);
+ * const result = await completeReset({ token: "reset123", newPassword: "password123" });
  */
 export function completePasswordResetFactory(
   prisma: PrismaClient,
@@ -55,13 +60,12 @@ export function completePasswordResetFactory(
     try {
       return await completePasswordReset(prisma, config, options);
     } catch (err) {
-      config.logger.error("Error in completePasswordResetFactory", {
-        token: options.token,
-        error: err,
-      });
-      return createErrorResult(
+      return formatErrorResult(
+        config,
+        err,
+        "Error in completePasswordResetFactory",
+        "Password reset completion failed",
         500,
-        (err as Error).message || "Password reset completion failed",
       );
     }
   };

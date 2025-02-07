@@ -69,7 +69,7 @@ export const defaultConfig: Required<SpectraAuthConfig> = {
     tokenLengthBytes: 32, // Length of CSRF token
     cookieSecure: process.env.NODE_ENV === "production", // Secure CSRF cookie in production
     cookieHttpOnly: true, // CSRF cookie should be HttpOnly
-    cookieSameSite: "Strict", // Strict SameSite for CSRF cookie
+    cookieSameSite: "strict", // Strict SameSite for CSRF cookie
     maxAgeSec: 2 * 60 * 60, // 2 hours CSRF token max age (adjust as needed) - shorter than session
   },
 };

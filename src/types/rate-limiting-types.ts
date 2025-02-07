@@ -9,12 +9,6 @@ export interface SensitiveRoutesRateLimitConfig {
   passwordReset?: RouteRateLimit;
 }
 
-export interface RateLimitConfig {
-  disable?: boolean;
-  kvRestApiUrl?: string;
-  kvRestApiToken?: string;
-}
-
 export type RateLimitingStrategy =
   | "fixedWindow"
   | "slidingWindow"

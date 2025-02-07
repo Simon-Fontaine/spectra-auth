@@ -2,17 +2,22 @@ import type { PrismaClient } from "@prisma/client";
 import { type LoginOptions, loginUser } from "../auth/login";
 import { logoutUser } from "../auth/logout";
 import type { SpectraAuthConfig } from "../types";
-import { createErrorResult } from "../utils/logger";
+import { formatErrorResult } from "../utils/formatResult";
 
 /**
- * Creates a login function with built-in error handling and rate-limiting.
+ * Creates a factory function for user login operations.
  *
- * - Captures the required dependencies through closure.
- * - Logs unexpected errors and returns a standardized error result.
+ * @param prisma - The Prisma client instance used for database operations
+ * @param config - The required configuration object for Spectra Auth
+ * @returns An async function that handles user login with error handling
  *
- * @param prisma - The Prisma client instance for database access.
- * @param config - The authentication configuration.
- * @returns A login function with error handling.
+ * @example
+ * ```ts
+ * const login = loginUserFactory(prismaClient, spectraConfig);
+ * const result = await login({ email: "user@example.com", password: "pass123" });
+ * ```
+ *
+ * @throws Will format and return error results according to config if login fails
  */
 export function loginUserFactory(
   prisma: PrismaClient,
@@ -22,21 +27,31 @@ export function loginUserFactory(
     try {
       return await loginUser(prisma, config, options);
     } catch (err) {
-      config.logger.error("Unexpected error in loginUserFactory", { err });
-      return createErrorResult(500, (err as Error).message || "Login error");
+      return formatErrorResult(
+        config,
+        err,
+        "Unexpected error in loginUserFactory",
+        "Login error",
+        500,
+      );
     }
   };
 }
 
 /**
- * Creates a logout function with built-in error handling.
+ * Creates a function to handle user logout operations with error handling.
  *
- * - Captures the required dependencies through closure.
- * - Logs unexpected errors and returns a standardized error result.
+ * @param prisma - The Prisma client instance for database operations
+ * @param config - The complete configuration object for Spectra Auth
+ * @returns An async function that accepts a raw token string and processes the logout
  *
- * @param prisma - The Prisma client instance for database access.
- * @param config - The authentication configuration.
- * @returns A logout function with error handling.
+ * The returned function:
+ * - Takes a raw token string as input
+ * - Attempts to log out the user
+ * - Returns a formatted error if the operation fails
+ * - Returns the logout result if successful
+ *
+ * @throws Will return a formatted error object if any exception occurs during logout
  */
 export function logoutUserFactory(
   prisma: PrismaClient,
@@ -46,8 +61,13 @@ export function logoutUserFactory(
     try {
       return await logoutUser(prisma, config, rawToken);
     } catch (err) {
-      config.logger.error("Unexpected error in logoutUserFactory", { err });
-      return createErrorResult(500, (err as Error).message || "Logout error");
+      return formatErrorResult(
+        config,
+        err,
+        "Unexpected error in logoutUserFactory",
+        "Logout error",
+        500,
+      );
     }
   };
 }

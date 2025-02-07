@@ -29,7 +29,7 @@ export async function loginUser(
 
     // Step 1: Enforce IP-based rate limiting if applicable
     const ip = options.ipAddress;
-    const routeLimiter = createRouteRateLimiter("login", config);
+    const routeLimiter = createRouteRateLimiter("loginRoute", config);
 
     // Step 2: Enforce IP-based rate-limiting if IP address is available
     if (ip && routeLimiter) {

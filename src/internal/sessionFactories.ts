@@ -6,17 +6,21 @@ import {
   validateSession,
 } from "../auth/session";
 import type { SpectraAuthConfig } from "../types";
-import { createErrorResult } from "../utils/logger";
+import { formatErrorResult } from "../utils/formatResult";
 
 /**
- * Creates a factory function for session creation with error handling.
+ * Creates a factory function for generating new sessions.
  *
- * - Creates a new session for a user.
- * - Captures Prisma and config dependencies via closure.
+ * @param prisma - The Prisma client instance used for database operations
+ * @param config - The complete configuration object for Spectra Auth
+ * @returns An async function that creates a new session based on the provided options
+ * @throws Will return a formatted error result if session creation fails
  *
- * @param prisma - The Prisma client instance for database access.
- * @param config - The authentication configuration.
- * @returns A session creation function with error handling.
+ * @example
+ * ```ts
+ * const sessionFactory = createSessionFactory(prisma, config);
+ * const session = await sessionFactory({ userId: "123" });
+ * ```
  */
 export function createSessionFactory(
   prisma: PrismaClient,
@@ -26,27 +30,34 @@ export function createSessionFactory(
     try {
       return await createSession(prisma, config, options);
     } catch (err) {
-      config.logger.error("Error in createSessionFactory", {
-        userId: options.userId,
-        error: err,
-      });
-      return createErrorResult(
+      return formatErrorResult(
+        config,
+        err,
+        "Error in createSessionFactory",
+        "Failed to create session.",
         500,
-        (err as Error).message || "Failed to create session.",
       );
     }
   };
 }
 
 /**
- * Creates a factory function for session validation with error handling.
+ * Creates a function to validate session tokens.
  *
- * - Validates if the provided session token is valid and not expired.
- * - Captures Prisma and config dependencies via closure.
+ * This factory creates a function that validates session tokens using the provided Prisma client and configuration.
+ * The resulting function handles all error cases and formats them according to the configuration.
  *
- * @param prisma - The Prisma client instance for database access.
- * @param config - The authentication configuration.
- * @returns A session validation function with error handling.
+ * @param prisma - The Prisma client instance used for database operations
+ * @param config - The complete SpectraAuth configuration object
+ * @returns An async function that takes a raw token string and validates the session
+ *
+ * @throws Will not throw directly, instead returns formatted error results
+ *
+ * @example
+ * ```ts
+ * const validateSession = validateSessionFactory(prismaClient, config);
+ * const result = await validateSession(token);
+ * ```
  */
 export function validateSessionFactory(
   prisma: PrismaClient,
@@ -56,27 +67,31 @@ export function validateSessionFactory(
     try {
       return await validateSession(prisma, config, rawToken);
     } catch (err) {
-      config.logger.error("Error in validateSessionFactory", {
-        tokenPrefix: rawToken.slice(0, 8),
-        error: err,
-      });
-      return createErrorResult(
+      return formatErrorResult(
+        config,
+        err,
+        "Error in validateSessionFactory",
+        "Failed to validate session.",
         500,
-        (err as Error).message || "Failed to validate session.",
       );
     }
   };
 }
 
 /**
- * Creates a factory function for session revocation with error handling.
+ * Creates a factory function for revoking sessions.
  *
- * - Revokes an active session, preventing further use of the session token.
- * - Captures Prisma and config dependencies via closure.
+ * @param prisma - The Prisma client instance used for database operations
+ * @param config - The complete SpectraAuth configuration object
+ * @returns An async function that takes a raw token string and revokes the associated session
  *
- * @param prisma - The Prisma client instance for database access.
- * @param config - The authentication configuration.
- * @returns A session revocation function with error handling.
+ * @throws Will return a formatted error result if session revocation fails
+ *
+ * @example
+ * ```ts
+ * const revokeSession = revokeSessionFactory(prismaClient, spectraConfig);
+ * await revokeSession("user-token-123");
+ * ```
  */
 export function revokeSessionFactory(
   prisma: PrismaClient,
@@ -86,13 +101,12 @@ export function revokeSessionFactory(
     try {
       return await revokeSession(prisma, config, rawToken);
     } catch (err) {
-      config.logger.error("Error in revokeSessionFactory", {
-        tokenPrefix: rawToken.slice(0, 8),
-        error: err,
-      });
-      return createErrorResult(
+      return formatErrorResult(
+        config,
+        err,
+        "Error in revokeSessionFactory",
+        "Failed to revoke session.",
         500,
-        (err as Error).message || "Failed to revoke session.",
       );
     }
   };

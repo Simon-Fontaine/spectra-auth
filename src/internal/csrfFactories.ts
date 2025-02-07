@@ -1,4 +1,3 @@
-// src/internal/csrfFactories.ts
 import type { PrismaClient } from "@prisma/client";
 import {
   clearCSRFForSession,
@@ -6,8 +5,23 @@ import {
   validateCSRFForSession,
 } from "../auth/csrf";
 import type { SpectraAuthConfig } from "../types";
-import { createErrorResult } from "../utils/logger";
+import { formatErrorResult, formatSuccessResult } from "../utils/formatResult";
 
+/**
+ * Creates a factory function for generating CSRF cookies associated with sessions.
+ *
+ * @param prisma - The Prisma client instance for database operations
+ * @param config - The complete configuration object for Spectra Auth
+ * @returns An async function that takes a session token and returns a result containing
+ * either a CSRF cookie string on success or an error message on failure
+ *
+ * The returned function:
+ * - Creates a new CSRF token for the given session
+ * - Returns a success result with cookie string if successful
+ * - Returns an error result with details if creation fails
+ *
+ * @throws Will return an error result rather than throwing if any errors occur
+ */
 export function createCSRFCookieFactory(
   prisma: PrismaClient,
   config: Required<SpectraAuthConfig>,
@@ -19,22 +33,36 @@ export function createCSRFCookieFactory(
         config,
         sessionToken,
       );
-      return {
-        error: false,
-        status: 200,
-        message: "CSRF token created successfully.",
-        data: { cookieStr },
-      };
+      return formatSuccessResult(200, "CSRF token created successfully.", {
+        cookieStr,
+      });
     } catch (err) {
-      config.logger.error("Error in createCSRF factory", { error: err });
-      return createErrorResult(
+      return formatErrorResult(
+        config,
+        err,
+        "Error in createCSRF factory",
+        "Failed to create CSRF token",
         500,
-        (err as Error).message || "Failed to create CSRF token",
       );
     }
   };
 }
 
+/**
+ * Creates a function to validate CSRF tokens against a session cookie.
+ *
+ * @param prisma - The Prisma client instance used for database operations
+ * @param config - The complete SpectraAuth configuration object
+ * @returns An async function that validates CSRF tokens with the following parameters:
+ *   - sessionToken: The session token string to validate against
+ *   - cookieHeader: The raw cookie header string from the request
+ *   - csrfSubmittedVal: The CSRF token value submitted with the request
+ *
+ * The returned function will return an object with:
+ * - On success: {error: false, status: 200, message: string}
+ * - On CSRF validation failure: {error: true, status: 403, message: string}
+ * - On error: {error: true, status: number, message: string, trace?: string}
+ */
 export function validateCSRFCookieFactory(
   prisma: PrismaClient,
   config: Required<SpectraAuthConfig>,
@@ -59,36 +87,45 @@ export function validateCSRFCookieFactory(
           message: "Invalid CSRF token.",
         };
       }
-      return {
-        error: false,
-        status: 200,
-        message: "CSRF token is valid.",
-      };
+      return formatSuccessResult(200, "CSRF token is valid.");
     } catch (err) {
-      config.logger.error("Error in validateCSRF factory", { error: err });
-      return createErrorResult(
+      return formatErrorResult(
+        config,
+        err,
+        "Error in validateCSRF factory",
+        "Failed to validate CSRF token",
         500,
-        (err as Error).message || "Failed to validate CSRF token",
       );
     }
   };
 }
 
+/**
+ * Creates a factory function that handles clearing CSRF cookies.
+ *
+ * @param config - The complete Spectra Auth configuration object
+ * @returns A function that when called:
+ *  - Attempts to clear the CSRF cookie for the current session
+ *  - Returns a success response (200) if successful
+ *  - Returns an error response (500) if clearing fails
+ *
+ * @throws Will handle and format any errors that occur during cookie clearing
+ * @see clearCSRFForSession
+ * @see formatSuccessResult
+ * @see formatErrorResult
+ */
 export function clearCSRFCookieFactory(config: Required<SpectraAuthConfig>) {
   return () => {
     try {
       const clearCookie = clearCSRFForSession(config);
-      return {
-        error: false,
-        status: 200,
-        message: "CSRF cookie cleared.",
-        data: { clearCookie },
-      };
+      return formatSuccessResult(200, "CSRF cookie cleared.", { clearCookie });
     } catch (err) {
-      config.logger.error("Error in clearCSRF factory", { error: err });
-      return createErrorResult(
+      return formatErrorResult(
+        config,
+        err,
+        "Error in clearCSRF factory",
+        "Failed to clear CSRF cookie",
         500,
-        (err as Error).message || "Failed to clear CSRF cookie",
       );
     }
   };

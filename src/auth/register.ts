@@ -26,7 +26,7 @@ export async function registerUser(
   try {
     // Step 1: Enforce IP-based rate limiting if applicable
     const ip = options.ipAddress;
-    const routeLimiter = createRouteRateLimiter("register", config);
+    const routeLimiter = createRouteRateLimiter("registerRoute", config);
     if (ip && routeLimiter) {
       const limit = await limitIPAttempts(ip, routeLimiter);
       if (!limit.success) {

@@ -22,6 +22,10 @@ export function createRateLimiter(
   strategy: RateLimitingStrategy,
   prefix: string,
 ): Ratelimit {
+  if (!config.rateLimit) {
+    throw new Error("Rate limiting configuration is required");
+  }
+
   const { kvRestApiUrl, kvRestApiToken } = config.rateLimit;
 
   // Validate configuration values
@@ -71,13 +75,13 @@ export function createRateLimiter(
  * @returns A configured Ratelimit instance or `null` if no override is specified.
  */
 export function createRouteRateLimiter(
-  routeKey: keyof NonNullable<SpectraAuthConfig["routeRateLimit"]>,
+  routeKey: keyof NonNullable<SpectraAuthConfig["rateLimit"]>,
   config: SpectraAuthConfig,
 ): Ratelimit | null {
-  const override = config.routeRateLimit?.[routeKey];
+  const override = config.rateLimit?.[routeKey];
 
   // If no override is specified for the route, return null
-  if (!override) return null;
+  if (!override || typeof override !== "object") return null;
 
   return createRateLimiter(
     config,

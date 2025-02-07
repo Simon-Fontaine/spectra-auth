@@ -1,31 +1,25 @@
 import type { PrismaClient } from "@prisma/client";
-import { validateConfig } from "./config";
-import { defaultConfig, mergeConfig } from "./config/defaults";
+import { defaultConfig, mergeConfig, validateConfig } from "./config";
 import {
+  clearCSRFCookie,
   clearSessionCookie,
   createSessionCookie,
   getSessionTokenFromHeader,
-} from "./cookies/simple";
-import { csrfFactory } from "./internal/csrfFactory";
-import {
-  loginUserFactory,
-  logoutUserFactory,
-} from "./internal/loginLogoutFactories";
-import { registerUserFactory } from "./internal/registerFactory";
+} from "./cookies";
 import {
   completePasswordResetFactory,
-  initiatePasswordResetFactory,
-} from "./internal/resetFactories";
-import {
   createSessionFactory,
-  revokeSessionFactory,
-  validateSessionFactory,
-} from "./internal/sessionFactories";
-import {
   createVerificationTokenFactory,
+  csrfFactory,
+  initiatePasswordResetFactory,
+  loginUserFactory,
+  logoutUserFactory,
+  registerUserFactory,
+  revokeSessionFactory,
   useVerificationTokenFactory,
+  validateSessionFactory,
   verifyEmailFactory,
-} from "./internal/verifyFactories";
+} from "./internal";
 import type { SpectraAuthConfig } from "./types";
 
 /**
@@ -44,7 +38,7 @@ export function initSpectraAuth<T extends PrismaClient>(
   userConfig?: SpectraAuthConfig,
 ) {
   // Step 1: Merge the user-provided config with defaults
-  const config = mergeConfig(userConfig, defaultConfig);
+  const config = mergeConfig(userConfig, defaultConfig); // Use defaultConfig directly
   try {
     validateConfig(config);
   } catch (err) {
@@ -60,7 +54,7 @@ export function initSpectraAuth<T extends PrismaClient>(
     }
   }
 
-  // Step 3: Initialize authentication methods using factories
+  // Step 3: Initialize authentication methods using factories, inject logger and updated config
   const registerUser = registerUserFactory(prisma, config);
   const loginUser = loginUserFactory(prisma, config);
   const logoutUser = logoutUserFactory(prisma, config);
@@ -76,9 +70,21 @@ export function initSpectraAuth<T extends PrismaClient>(
   const useVerificationToken = useVerificationTokenFactory(prisma, config);
   const verifyEmail = verifyEmailFactory(prisma, config);
 
-  // Step 4: Initialize CSRF protection methods
-  const { createCSRFCookie, getCSRFTokenFromCookies, validateCSRFToken } =
-    csrfFactory(prisma, config);
+  // Step 4: Initialize CSRF protection methods, inject logger and updated config
+  const {
+    createCSRFCookie: csrfCookieCreator,
+    getCSRFTokenFromCookies: csrfTokenFromCookiesGetter,
+    validateCSRFToken: csrfTokenValidator,
+  } = csrfFactory(prisma, config); // Destructure and rename for clarity
+
+  const enhancedCreateCSRFCookie = async (sessionToken: string) => {
+    if (!config.csrf.enabled) return ""; // Return empty string if CSRF disabled
+    return csrfCookieCreator(sessionToken);
+  };
+  const enhancedClearCSRFCookie = async () => {
+    if (!config.csrf.enabled) return ""; // Return empty string if CSRF disabled
+    return clearCSRFCookie(config);
+  };
 
   // Step 5: Return all methods in a single object
   return {
@@ -104,13 +110,15 @@ export function initSpectraAuth<T extends PrismaClient>(
     verifyEmail,
 
     // Cookies: session management
-    createSessionCookie,
-    clearSessionCookie,
+    createSessionCookie: (rawToken: string, maxAgeSeconds: number) =>
+      createSessionCookie(rawToken, maxAgeSeconds, config), // Pass config
+    clearSessionCookie: () => clearSessionCookie(config), // Pass config
     getSessionTokenFromHeader,
 
     // Cookies: CSRF protection
-    createCSRFCookie,
-    getCSRFTokenFromCookies,
-    validateCSRFToken,
+    createCSRFCookie: enhancedCreateCSRFCookie, // Use enhanced version respecting config
+    clearCSRFCookie: enhancedClearCSRFCookie, // Use enhanced version respecting config
+    getCSRFTokenFromCookies: csrfTokenFromCookiesGetter,
+    validateCSRFToken: csrfTokenValidator,
   };
 }

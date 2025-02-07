@@ -1,65 +1,79 @@
 import { getRandomValues } from "uncrypto";
-import { hashArgon2, verifyArgon2 } from "./argon2Utils";
+import type { EncodingFormat } from "../types"; // Adjust path if necessary
+import { base64Url } from "./base64";
+import { hex } from "./hex";
 
-/**
- * Splits a randomly generated 32-byte array into a prefix and suffix.
- *
- * - The `prefix` (8 bytes) is stored in the database for quick token lookups.
- * - The `suffix` (24 bytes) is only stored as a securely hashed value.
- *
- * @returns An object containing the token `prefix` and `suffix`.
- */
-export function generateTokenParts(): { prefix: string; suffix: string } {
-  const buf = new Uint8Array(32);
-  getRandomValues(buf);
-
-  const prefixBytes = buf.slice(0, 8); // 8 bytes => 16 hex characters
-  const suffixBytes = buf.slice(8, 32); // 24 bytes => 48 hex characters
-
-  return {
-    prefix: bufferToHex(prefixBytes),
-    suffix: bufferToHex(suffixBytes),
-  };
+function randomBytes(length: number): Uint8Array {
+  return getRandomValues(new Uint8Array(length));
 }
 
 /**
- * Hashes the token suffix using Argon2id.
+ * Generates a cryptographically secure random session token.
  *
- * - Argon2 hashing adds computational cost to deter brute-force attacks.
- * - Uses a random salt and parameters optimized for WASM environments.
- *
- * @param suffix - The token suffix to be securely hashed.
- * @returns A promise resolving to the Argon2-encoded string.
+ * @param length The desired length of the token in bytes (default: 32 bytes, 256 bits).
+ * @param format  Encoding format for the token ('base64' or 'hex', default: 'base64').
+ * @returns A cryptographically secure random session token string.
  */
-export async function hashSuffix(suffix: string): Promise<string> {
-  return hashArgon2(suffix, {
-    mem: 2048, // Increased memory usage for better security
-    time: 3, // Increased iterations for higher resistance to cracking
-    parallelism: 1, // Single thread (WASM-friendly)
-    saltSize: 16, // 128-bit salt for randomness
-  });
+export async function generateSessionToken(
+  length = 32,
+  format: EncodingFormat = "base64",
+): Promise<string> {
+  if (length <= 0) {
+    throw new Error("Token length must be greater than zero.");
+  }
+
+  try {
+    const buffer = randomBytes(length);
+
+    if (format === "hex") {
+      return hex.encode(buffer);
+    }
+
+    if (format === "base64") {
+      return base64Url.encode(buffer);
+    }
+
+    throw new Error(
+      `Unsupported token format: ${format}. Use 'base64' or 'hex'.`,
+    );
+  } catch (error) {
+    console.error("Session token generation failed:", error);
+    throw new Error("Failed to generate session token.");
+  }
 }
 
 /**
- * Verifies the token suffix against the stored Argon2 hash.
+ * Generates a cryptographically secure random token prefix.
+ *  Prefixes can be shorter and are used for indexing and faster session lookup.
  *
- * @param storedHash - The Argon2-encoded hash stored in the database.
- * @param suffix - The plain suffix to be verified.
- * @returns A promise resolving to `true` if the suffix is valid, otherwise `false`.
+ * @param length Desired prefix length in bytes (default: 8 bytes, 64 bits).
+ * @param format Encoding format ('base64' or 'hex', default: 'hex').
+ * @returns A cryptographically secure random token prefix string.
  */
-export async function verifySuffixHash(
-  storedHash: string,
-  suffix: string,
-): Promise<boolean> {
-  return verifyArgon2(storedHash, suffix);
-}
+export async function generateTokenPrefix(
+  length = 8,
+  format: EncodingFormat = "hex",
+): Promise<string> {
+  if (length <= 0) {
+    throw new Error("Token prefix length must be greater than zero.");
+  }
 
-/**
- * Converts a Uint8Array buffer into a hexadecimal string.
- *
- * @param buf - The buffer to convert.
- * @returns The hexadecimal representation of the buffer.
- */
-function bufferToHex(buf: Uint8Array): string {
-  return [...buf].map((b) => b.toString(16).padStart(2, "0")).join("");
+  try {
+    const buffer = randomBytes(length);
+
+    if (format === "hex") {
+      return hex.encode(buffer);
+    }
+
+    if (format === "base64") {
+      return base64Url.encode(buffer);
+    }
+
+    throw new Error(
+      `Unsupported token format: ${format}. Use 'base64' or 'hex'.`,
+    );
+  } catch (error) {
+    console.error("Token prefix generation failed:", error);
+    throw new Error("Failed to generate token prefix.");
+  }
 }

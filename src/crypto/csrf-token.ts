@@ -34,8 +34,8 @@ export async function generateCSRFToken(
 ): Promise<string> {
   const data = `${sessionToken}.${csrfSecret}`;
   const signature = await createHMAC("SHA-256", "base64urlnopad").sign(
+    config.session.csrfSecret,
     data,
-    config.csrf.secret,
   );
   return `${base64Url.encode(randomBytes(CSRF_TOKEN_LENGTH_BYTES))}.${signature}`; // tokenPart.signaturePart
 }
@@ -50,7 +50,7 @@ export async function generateCSRFToken(
  * @param config SpectraAuth configuration.
  * @returns True if the CSRF token is valid, false otherwise.
  */
-export async function validateCSRFToken(
+export async function verifyCSRFToken(
   sessionToken: string,
   csrfCookieToken: string | undefined,
   csrfSubmittedToken: string | undefined,
@@ -67,8 +67,8 @@ export async function validateCSRFToken(
   }
 
   const expectedSignature = await createHMAC("SHA-256", "base64urlnopad").sign(
+    config.session.csrfSecret,
     `${sessionToken}.${csrfSecret}`,
-    config.csrf.secret,
   );
 
   // Use timingSafeEqual to prevent timing attacks

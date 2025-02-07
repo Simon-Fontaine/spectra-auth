@@ -1,40 +1,101 @@
-import type { LoggerInterface, SpectraAuthResult } from "../types";
+import { LogLevel, type LoggerInterface } from "../types";
 
-export function createErrorResult(
-  status: number,
-  message: string,
-  code?: string,
-): SpectraAuthResult {
-  return { error: true, status, message, code };
+/**
+ * A simple console logger implementation.
+ * Outputs logs to the console, prefixed with the log level.
+ */
+export class ConsoleLogger implements LoggerInterface {
+  private logLevel = LogLevel.Info; // Default log level
+
+  constructor(level?: LogLevel) {
+    if (level) {
+      this.logLevel = level;
+    }
+  }
+
+  debug(message: string, context?: Record<string, unknown>): void {
+    if (this.shouldLog(LogLevel.Debug)) {
+      this.logWithLevel(LogLevel.Debug, message, context);
+    }
+  }
+
+  info(message: string, context?: Record<string, unknown>): void {
+    if (this.shouldLog(LogLevel.Info)) {
+      this.logWithLevel(LogLevel.Info, message, context);
+    }
+  }
+
+  warn(message: string, context?: Record<string, unknown>): void {
+    if (this.shouldLog(LogLevel.Warn)) {
+      this.logWithLevel(LogLevel.Warn, message, context);
+    }
+  }
+
+  error(message: string, context?: Record<string, unknown>): void {
+    if (this.shouldLog(LogLevel.Error)) {
+      this.logWithLevel(LogLevel.Error, message, context);
+    }
+  }
+
+  securityEvent(eventName: string, context?: Record<string, unknown>): void {
+    if (this.shouldLog(LogLevel.Security)) {
+      this.logWithLevel(LogLevel.Security, eventName, context);
+    }
+  }
+
+  private shouldLog(level: LogLevel): boolean {
+    const currentLevelValue = this.getLogLevelValue(this.logLevel);
+    const messageLevelValue = this.getLogLevelValue(level);
+    return messageLevelValue >= currentLevelValue;
+  }
+
+  private getLogLevelValue(level: LogLevel): number {
+    switch (level) {
+      case LogLevel.Debug:
+        return 1;
+      case LogLevel.Info:
+        return 2;
+      case LogLevel.Warn:
+        return 3;
+      case LogLevel.Error:
+        return 4;
+      case LogLevel.Security:
+        return 5; // Security events are most important
+      default:
+        return 2; // Info level by default if unknown
+    }
+  }
+
+  private logWithLevel(
+    level: LogLevel,
+    message: string,
+    context?: Record<string, unknown>,
+  ): void {
+    let logMessage = `[SpectraAuth - ${level.toUpperCase()}] ${message}`;
+    if (context) {
+      logMessage += ` - Context: ${JSON.stringify(context)}`;
+    }
+
+    switch (level) {
+      case LogLevel.Error:
+        console.error(logMessage);
+        break;
+      case LogLevel.Warn:
+        console.warn(logMessage);
+        break;
+      default:
+        console.log(logMessage);
+        break;
+    }
+  }
 }
 
-export function createSuccessResult(
-  status: number,
-  message: string,
-  data?: Record<string, unknown>,
-): SpectraAuthResult {
-  return { error: false, status, message, data };
+/**
+ * Creates a logger instance. (Currently always ConsoleLogger, could be extended)
+ *
+ * @param level - Optional log level to set for the logger.
+ * @returns A LoggerInterface instance.
+ */
+export function createLogger(level?: LogLevel): LoggerInterface {
+  return new ConsoleLogger(level);
 }
-
-export const consoleLogger: LoggerInterface = {
-  info: (msg, meta) =>
-    console.info(
-      `[SpectraAuth INFO] ${msg}`,
-      meta ? `\nMetadata: ${JSON.stringify(meta)}` : "",
-    ),
-  warn: (msg, meta) =>
-    console.warn(
-      `[SpectraAuth WARN] ${msg}`,
-      meta ? `\nMetadata: ${JSON.stringify(meta)}` : "",
-    ),
-  error: (msg, meta) =>
-    console.error(
-      `[SpectraAuth ERROR] ${msg}`,
-      meta ? `\nMetadata: ${JSON.stringify(meta)}` : "",
-    ),
-  securityEvent: (eventType, meta) =>
-    console.log(
-      `[SpectraAuth SECURITY EVENT] ${eventType}`,
-      `\nMetadata: ${JSON.stringify(meta)}`,
-    ),
-};

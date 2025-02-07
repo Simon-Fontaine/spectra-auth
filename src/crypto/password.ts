@@ -1,62 +1,69 @@
+import {
+  type Argon2BrowserHashOptions,
+  type Argon2VerifyOptions,
+  hash,
+  verify,
+} from "argon2-browser";
 import type { SpectraAuthConfig } from "../types";
-import { hashArgon2, verifyArgon2 } from "./argon2Utils";
 
 /**
- * Hashes a password using Argon2id with additional security provided by a pepper.
+ * Hash a password using Argon2.
  *
- * - Appends a server-side secret pepper to the password before hashing.
- * - Uses Argon2id for enhanced protection against GPU-based attacks.
- * - Configurable memory, iterations, and parallelism for fine-tuned security.
- *
- * @param password - The plaintext password to be hashed.
- * @param config - The authentication configuration containing the pepper.
- * @returns The Argon2-encoded hash string.
+ * @param plainPassword The plaintext password to hash.
+ * @param config SpectraAuth configuration.
+ * @returns The hashed password string (usually base64 encoded).
  */
 export async function hashPassword(
-  password: string,
+  plainPassword: string,
   config: Required<SpectraAuthConfig>,
 ): Promise<string> {
-  try {
-    // Step 1: Append the server-side pepper to the password
-    const peppered = password + config.passwordPepper;
+  const options: Argon2BrowserHashOptions = {
+    pass: plainPassword,
+    salt: config.passwordPepper,
+    parallelism: 2, // Number of threads
+    mem: 1024 * 64, // 64MB, reasonable for browser and Node.js
+    time: 2, // Number of iterations
+    hashLen: 32, // Explicitly set hash length to 32 bytes (256 bits)
+  };
 
-    // Step 2: Hash the password using Argon2id with secure parameters
-    return await hashArgon2(peppered, {
-      mem: 1024 * 64, // 64 MB memory cost
-      time: 3, // 3 iterations
-      parallelism: 1, // Single thread (suitable for WASM environments)
-      saltSize: 16, // 128-bit salt for randomness
-    });
-  } catch (err) {
-    config.logger.error("Failed to hash password", { error: err });
+  try {
+    const hashResult = await hash(options);
+    return hashResult.encoded;
+  } catch (error) {
+    console.error("Password hashing failed:", error);
     throw new Error("Password hashing failed");
   }
 }
 
 /**
- * Verifies a plaintext password against a stored Argon2-encoded hash.
+ * Verify a plain password against a hashed password using Argon2.
  *
- * - Appends the server-side pepper to the input password before verification.
- * - Compares the generated hash with the stored hash securely.
- *
- * @param storedHash - The Argon2-encoded hash stored in the database.
- * @param inputPassword - The plaintext password provided by the user.
- * @param config - The authentication configuration containing the pepper.
- * @returns `true` if the password matches the stored hash, otherwise `false`.
+ * @param hashedPassword The hashed password to compare against.
+ * @param plainPassword The plaintext password to verify.
+ * @param config SpectraAuth configuration.
+ * @returns True if the password is valid, false otherwise.
  */
 export async function verifyPassword(
-  storedHash: string,
-  inputPassword: string,
-  config: Required<SpectraAuthConfig>,
+  hashedPassword?: string,
+  plainPassword?: string,
+  config?: Required<SpectraAuthConfig>,
 ): Promise<boolean> {
+  if (!hashedPassword || !plainPassword || !config?.passwordPepper) {
+    return false;
+  }
+  const options: Argon2VerifyOptions = {
+    pass: plainPassword, // Plain password to verify
+    encoded: hashedPassword, // Hashed password to compare against
+  };
   try {
-    // Step 1: Append the server-side pepper to the input password
-    const peppered = inputPassword + config.passwordPepper;
-
-    // Step 2: Verify the password against the stored Argon2 hash
-    return await verifyArgon2(storedHash, peppered);
-  } catch (err) {
-    config.logger.warn("Password verification failed", { error: err });
+    await verify(options);
+    return true;
+  } catch (error) {
+    if (error && typeof error === "object" && "message" in error) {
+      console.error("Password verification error:", error.message);
+    } else {
+      console.error("Password verification error:", error);
+    }
     return false;
   }
 }

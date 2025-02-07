@@ -16,9 +16,9 @@ export function createCSRFCookie(
 ): string {
   return serialize("spectra.csrfToken", csrfToken, {
     httpOnly: true,
-    secure: config.session.cookieSecure, // Use session cookie secure setting
-    sameSite: config.session.cookieSameSite, // Use session cookie samesite setting
-    path: "/", // Adjust if needed
+    secure: config.session.cookieSecure,
+    sameSite: config.session.cookieSameSite,
+    path: "/",
     maxAge: maxAgeSeconds,
   });
 }

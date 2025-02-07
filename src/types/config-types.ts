@@ -1,33 +1,57 @@
 import type { LoggerInterface } from "./logger-interface";
-import type {
-  RateLimitConfig,
-  SensitiveRoutesRateLimitConfig,
-} from "./rate-limiting-types";
+
+export interface SpectraAuthConfig {
+  logger?: LoggerInterface;
+  securityEventLogger?: LoggerInterface;
+  session?: SessionConfig;
+  rateLimit?: RateLimitConfig;
+  accountLock?: AccountLockConfig;
+  passwordPepper?: string;
+  csrf?: CSRFConfig;
+}
 
 export interface SessionConfig {
+  cookieName: string;
   maxAgeSec: number;
-  updateAgeSec: number;
-  maxSessionsPerUser: number;
+  tokenLengthBytes: number;
+  tokenPrefixLengthBytes: number;
+  tokenSecret: string;
+  csrfSecret: string;
   cookieSecure: boolean;
-  cookieSameSite: "strict" | "lax" | "none";
+  cookieSameSite: "lax" | "strict" | "none";
+  cookieHttpOnly: boolean;
+  maxSessionsPerUser?: number;
+}
+
+export interface RateLimitConfig {
+  disable: boolean;
+  kvRestApiUrl?: string;
+  kvRestApiToken?: string;
+  loginRoute?: RouteRateLimitConfig;
+  registerRoute?: RouteRateLimitConfig;
+  passwordResetRoute?: RouteRateLimitConfig;
+}
+
+export interface RouteRateLimitConfig {
+  enabled: boolean;
+  attempts: number;
+  windowSeconds: number;
 }
 
 export interface AccountLockConfig {
+  enabled: boolean;
   threshold: number;
   durationMs: number;
 }
 
 export interface CSRFConfig {
   enabled: boolean;
-  secret: string;
-}
-
-export interface SpectraAuthConfig {
-  session: SessionConfig;
-  accountLock: AccountLockConfig;
-  rateLimit: RateLimitConfig;
-  routeRateLimit: SensitiveRoutesRateLimitConfig;
-  csrf: CSRFConfig;
-  passwordPepper: string;
-  logger: LoggerInterface;
+  cookieName: string;
+  headerName: string;
+  formFieldName: string;
+  tokenLengthBytes: number;
+  cookieSecure: boolean;
+  cookieHttpOnly: boolean;
+  cookieSameSite: "Strict" | "Lax" | "None";
+  maxAgeSec: number;
 }

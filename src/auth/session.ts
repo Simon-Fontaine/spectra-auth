@@ -1,19 +1,344 @@
 import type { PrismaClient } from "@prisma/client";
-import { getRandomValues } from "uncrypto";
-import { hex } from "../crypto/hex";
+import { createHMAC } from "../crypto/hmac";
 import {
-  generateTokenParts,
-  hashSuffix,
-  verifySuffixHash,
+  generateSessionToken,
+  generateTokenPrefix,
 } from "../crypto/session-token";
+import {
+  AuthenticationError,
+  SessionNotFoundError,
+  SessionRevokedError,
+} from "../errors";
 import type { AuthSession } from "../interfaces";
 import type { SpectraAuthConfig, SpectraAuthResult } from "../types";
 
-/** Options for creating a session */
+/**
+ * Creates a new user session.
+ *
+ * - Generates a unique session token and prefix.
+ * - Hashes the session token for secure storage.
+ * - Stores session data in the database, including device info and expiry.
+ *
+ * @param prisma - Prisma client instance.
+ * @param config - Authentication configuration.
+ * @param options - Options including userId and deviceInfo.
+ * @returns Result containing the raw session token and user ID on success.
+ */
+export async function createSession(
+  prisma: PrismaClient,
+  config: Required<SpectraAuthConfig>,
+  options: CreateSessionOptions,
+): Promise<SpectraAuthResult> {
+  try {
+    const { userId, deviceInfo } = options;
+    const sessionToken = await generateSessionToken(
+      config.session.tokenLengthBytes,
+    ); // Generate full session token
+    const tokenPrefix = await generateTokenPrefix(
+      config.session.tokenPrefixLengthBytes,
+    ); // Shorter prefix for indexing
+    const tokenHash = await createHMAC("SHA-256", "base64urlnopad").sign(
+      sessionToken,
+      config.session.tokenSecret,
+    ); // HMAC hash of the token
+
+    const sessionExpiresAt = new Date(
+      Date.now() + config.session.maxAgeSec * 1000,
+    ); // Session expiration date
+
+    // Create session record in database
+    const session = (await prisma.session.create({
+      data: {
+        userId: userId,
+        tokenPrefix: tokenPrefix,
+        tokenHash: tokenHash,
+        expiresAt: sessionExpiresAt,
+        ipAddress: deviceInfo?.ipAddress,
+        location: deviceInfo?.location,
+        country: deviceInfo?.country,
+        device: deviceInfo?.device,
+        browser: deviceInfo?.browser,
+        userAgent: deviceInfo?.userAgent,
+      },
+    })) as AuthSession; // Type assertion for known structure
+
+    config.logger.info("Session created", {
+      sessionId: session.id,
+      userId: userId,
+      tokenPrefix: tokenPrefix,
+      expiresAt: session.expiresAt,
+    });
+
+    return {
+      error: false,
+      status: 201, // Created
+      message: "Session created successfully",
+      data: {
+        sessionId: session.id,
+        userId: userId,
+        rawToken: sessionToken, // Return the raw, unhashed token to be set as cookie
+      },
+    };
+  } catch (error) {
+    config.logger.error("Error creating session", { error: error });
+    return {
+      error: true,
+      status: 500,
+      message: "Failed to create session",
+    };
+  }
+}
+
+/**
+ * Validates a session token.
+ *
+ * - Extracts the token prefix from the raw token.
+ * - Looks up the session in the database by token prefix.
+ * - Verifies the token hash against the stored hash.
+ * - Checks if the session is expired or revoked.
+ *
+ * @param prisma - Prisma client instance.
+ * @param config - Authentication configuration.
+ * @param rawToken - The raw session token from the client.
+ * @returns Result containing session data if valid, or an error.
+ */
+export async function validateSession(
+  prisma: PrismaClient,
+  config: Required<SpectraAuthConfig>,
+  rawToken: string,
+): Promise<SpectraAuthResult> {
+  try {
+    if (!rawToken) {
+      throw new AuthenticationError(
+        "No session token provided",
+        401,
+        "E_TOKEN_REQUIRED",
+      );
+    }
+
+    const tokenPrefix = rawToken.slice(
+      0,
+      config.session.tokenPrefixLengthBytes * 2,
+    ); // Extract prefix (hex encoded, so *2)
+
+    if (tokenPrefix.length !== config.session.tokenPrefixLengthBytes * 2) {
+      throw new AuthenticationError(
+        "Invalid session token format (prefix length)",
+        400,
+        "E_TOKEN_INVALID_FORMAT",
+      );
+    }
+
+    // Step 1: Retrieve session by token prefix (indexed)
+    const session = (await prisma.session.findFirst({
+      where: { tokenPrefix: tokenPrefix },
+    })) as AuthSession | null;
+
+    if (!session) {
+      config.logger.warn("Session not found (prefix lookup)", {
+        tokenPrefix: tokenPrefix,
+      });
+      throw new SessionNotFoundError(
+        "Session not found",
+        404,
+        "E_SESSION_NOT_FOUND",
+      );
+    }
+
+    // Step 2: Verify token hash against stored hash
+    const isTokenValid = await createHMAC().verify(
+      config.session.tokenSecret,
+      session.tokenHash || "",
+      rawToken,
+    );
+    if (!isTokenValid) {
+      config.logger.warn("Session token hash mismatch", {
+        sessionId: session.id,
+        tokenPrefix: tokenPrefix,
+      });
+      await revokeSessionInternal(prisma, session.id, config); // Revoke session on hash mismatch for security
+      throw new AuthenticationError(
+        "Invalid session token (hash mismatch)",
+        401,
+        "E_TOKEN_INVALID_HASH",
+      ); // More generic error for client
+    }
+
+    // Step 3: Check if session is revoked
+    if (session.isRevoked) {
+      config.logger.warn("Session is revoked", {
+        sessionId: session.id,
+        tokenPrefix: tokenPrefix,
+      });
+      throw new SessionRevokedError(
+        "Session is revoked",
+        401,
+        "E_SESSION_REVOKED",
+      );
+    }
+
+    // Step 4: Check if session is expired
+    if (session.expiresAt < new Date()) {
+      config.logger.warn("Session expired", {
+        sessionId: session.id,
+        tokenPrefix: tokenPrefix,
+        expiresAt: session.expiresAt,
+      });
+      await revokeSessionInternal(prisma, session.id, config); // Revoke expired session
+      throw new SessionRevokedError(
+        "Session expired",
+        401,
+        "E_SESSION_EXPIRED",
+      ); // SessionRevokedError to indicate logout is needed
+    }
+
+    config.logger.info("Session validated", {
+      sessionId: session.id,
+      userId: session.userId,
+      tokenPrefix: tokenPrefix,
+      expiresAt: session.expiresAt,
+    });
+
+    return {
+      error: false,
+      status: 200,
+      message: "Session is valid",
+      data: { session: session }, // Return session data (consider what data to expose)
+    };
+  } catch (error) {
+    if (
+      error instanceof AuthenticationError ||
+      error instanceof SessionNotFoundError ||
+      error instanceof SessionRevokedError
+    ) {
+      return {
+        error: true,
+        status: error.status,
+        message: error.message,
+        code: error.code,
+      };
+    }
+    config.logger.error("Error validating session", { error: error });
+    return {
+      error: true,
+      status: 500,
+      message: "Session validation failed",
+    };
+  }
+}
+
+/**
+ * Revokes a session token, rendering it invalid.
+ *
+ * - Calls the internal revocation function to update session status in DB.
+ * - Logs the revocation event.
+ *
+ * @param prisma - Prisma client.
+ * @param config - Auth config.
+ * @param rawToken - The raw session token to revoke.
+ * @returns Success result or error.
+ */
+export async function revokeSession(
+  prisma: PrismaClient,
+  config: Required<SpectraAuthConfig>,
+  rawToken: string,
+): Promise<SpectraAuthResult> {
+  try {
+    const tokenPrefix = rawToken.slice(
+      0,
+      config.session.tokenPrefixLengthBytes * 2,
+    );
+
+    const session = (await prisma.session.findFirst({
+      where: { tokenPrefix: tokenPrefix },
+    })) as AuthSession | null;
+
+    if (!session) {
+      config.logger.warn(
+        "Revoke session attempt for non-existent session (prefix lookup)",
+        { tokenPrefix },
+      );
+      return {
+        error: true,
+        status: 404,
+        message: "Session not found for revocation",
+        code: "E_SESSION_NOT_FOUND",
+      };
+    }
+
+    const result = await revokeSessionInternal(prisma, session.id, config); // Call internal revoke function
+
+    if (!result.error) {
+      config.logger.info("Session revoked", {
+        sessionId: session.id,
+        tokenPrefix: tokenPrefix,
+      });
+    } else {
+      config.logger.warn("Session revocation failed", {
+        sessionId: session.id,
+        tokenPrefix: tokenPrefix,
+        reason: result.message,
+      });
+    }
+
+    return result;
+  } catch (error) {
+    config.logger.error("Error revoking session", { error: error });
+    return {
+      error: true,
+      status: 500,
+      message: "Failed to revoke session",
+    };
+  }
+}
+
+/**
+ * Internal function to revoke a session by session ID.
+ *  - Updates the session in the database to set 'isRevoked' to true.
+ *  - Does NOT perform token validation - assumes session ID is valid and known.
+ *  - Used by both `revokeSession` (after token prefix lookup) and `validateSession` (on token mismatch/expiry).
+ *
+ * @param prisma - Prisma client.
+ * @param sessionId - The session ID (UUID) to revoke.
+ * @param config - Auth config.
+ * @returns Success or failure result.
+ */
+async function revokeSessionInternal(
+  prisma: PrismaClient,
+  sessionId: string,
+  config: Required<SpectraAuthConfig>,
+): Promise<SpectraAuthResult> {
+  try {
+    await prisma.session.update({
+      where: { id: sessionId },
+      data: { isRevoked: true },
+    });
+
+    config.logger.debug("Session revoked in DB", { sessionId: sessionId }); // Debug level - internal operation
+
+    return {
+      error: false,
+      status: 200,
+      message: "Session revoked",
+    };
+  } catch (error) {
+    config.logger.error("Error updating session to revoked", {
+      sessionId: sessionId,
+      error: error,
+    });
+    return {
+      error: true,
+      status: 500,
+      message: "Failed to revoke session in database",
+    };
+  }
+}
+
+/** Options for createSession function */
 export interface CreateSessionOptions {
-  /** The user ID for which the session is being created. */
+  /** User ID for whom to create the session. */
   userId: string;
-  /** Device metadata (location, browser, etc.) */
+  /** Device/location info (optional, for security/audit). */
   deviceInfo?: {
     ipAddress?: string;
     location?: string;
@@ -22,254 +347,4 @@ export interface CreateSessionOptions {
     browser?: string;
     userAgent?: string;
   };
-}
-
-/**
- * Creates a new session for the specified user ID.
- *
- * - Generates a secure session token.
- * - Enforces session concurrency limits.
- * - Stores session details in the database.
- *
- * @param prisma - The Prisma client instance for database operations.
- * @param config - The configuration for session management.
- * @param options - The options containing the user ID and device information.
- * @returns A result containing the session token if successful.
- */
-export async function createSession(
-  prisma: PrismaClient,
-  config: Required<SpectraAuthConfig>,
-  options: CreateSessionOptions,
-): Promise<SpectraAuthResult> {
-  const { logger, session } = config;
-  try {
-    // Step 1: Enforce session concurrency limit if configured
-    if (session.maxSessionsPerUser > 0) {
-      const activeCount = await prisma.session.count({
-        where: {
-          userId: options.userId,
-          isRevoked: false,
-          expiresAt: { gt: new Date() },
-        },
-      });
-
-      if (activeCount >= session.maxSessionsPerUser) {
-        const oldest = await prisma.session.findFirst({
-          where: {
-            userId: options.userId,
-            isRevoked: false,
-            expiresAt: { gt: new Date() },
-          },
-          orderBy: { createdAt: "asc" },
-        });
-        if (oldest) {
-          await prisma.session.update({
-            where: { id: oldest.id },
-            data: { isRevoked: true },
-          });
-          logger.warn("Revoked oldest session to enforce concurrency limit", {
-            userId: options.userId,
-            oldestSessionId: oldest.id,
-          });
-        }
-      }
-    }
-
-    // Step 2: Generate session token parts
-    const { prefix, suffix } = generateTokenParts();
-    const suffixHash = await hashSuffix(suffix);
-
-    // Step 3: Generate a random per-session CSRF secret
-    const csrfSecretArr = new Uint8Array(32);
-    getRandomValues(csrfSecretArr);
-    const csrfSecretHex = hex.encode(csrfSecretArr);
-
-    const expiresAt = new Date(Date.now() + session.maxAgeSec * 1000);
-
-    // Step 4: Create session entry in the database
-    await prisma.session.create({
-      data: {
-        userId: options.userId,
-        tokenPrefix: prefix,
-        tokenHash: suffixHash,
-        csrfSecret: csrfSecretHex,
-        expiresAt,
-        ipAddress: options.deviceInfo?.ipAddress,
-        location: options.deviceInfo?.location,
-        country: options.deviceInfo?.country,
-        device: options.deviceInfo?.device,
-        browser: options.deviceInfo?.browser,
-        userAgent: options.deviceInfo?.userAgent,
-      },
-    });
-
-    logger.info("Session created", { userId: options.userId });
-
-    return {
-      error: false,
-      status: 200,
-      message: "Session created successfully.",
-      data: { rawToken: prefix + suffix },
-    };
-  } catch (err) {
-    logger.error("Failed to create session", { error: err });
-    return {
-      error: true,
-      status: 500,
-      message: (err as Error).message || "Failed to create session",
-    };
-  }
-}
-
-/**
- * Validates a raw session token and renews it if necessary.
- *
- * - Checks if the session token is valid and not expired.
- * - Renews the session if it is near expiration.
- *
- * @param prisma - The Prisma client instance for database operations.
- * @param config - The configuration for session management.
- * @param rawToken - The session token to validate.
- * @returns A result containing the session details if successful.
- */
-export async function validateSession(
-  prisma: PrismaClient,
-  config: Required<SpectraAuthConfig>,
-  rawToken: string,
-): Promise<SpectraAuthResult> {
-  const { logger } = config;
-  try {
-    // Step 1: Extract token parts
-    const prefix = rawToken.slice(0, 16);
-    const suffix = rawToken.slice(16);
-
-    // Step 2: Find the session entry in the database
-    const session = (await prisma.session.findFirst({
-      where: {
-        tokenPrefix: prefix,
-        isRevoked: false,
-        expiresAt: { gt: new Date() },
-      },
-      include: { user: true },
-    })) as AuthSession | null;
-
-    if (!session || !session.tokenHash) {
-      return {
-        error: true,
-        status: 401,
-        message: "Session invalid or expired.",
-      };
-    }
-
-    // Step 3: Verify token suffix hash
-    const match = await verifySuffixHash(session.tokenHash, suffix);
-    if (!match) {
-      return {
-        error: true,
-        status: 401,
-        message: "Session invalid or expired.",
-      };
-    }
-
-    // Step 4: Check if session renewal is necessary
-    const now = Date.now();
-    const originalExpiresTime = session.expiresAt.getTime();
-    const updateThreshold =
-      originalExpiresTime -
-      config.session.maxAgeSec * 1000 +
-      config.session.updateAgeSec * 1000;
-
-    let updatedSession = session;
-
-    if (now > updateThreshold) {
-      const newExpiresAt = new Date(now + config.session.maxAgeSec * 1000);
-      updatedSession = (await prisma.session.update({
-        where: { id: session.id },
-        data: { expiresAt: newExpiresAt },
-        include: { user: true },
-      })) as AuthSession;
-      logger.info("Session extended", { sessionId: session.id });
-    }
-
-    return {
-      error: false,
-      status: 200,
-      message: "Session validated successfully.",
-      data: { session: updatedSession },
-    };
-  } catch (err) {
-    logger.error("Failed to validate session", { error: err });
-    return {
-      error: true,
-      status: 500,
-      message: (err as Error).message || "Failed to validate session",
-    };
-  }
-}
-
-/**
- * Revokes an active session identified by its raw token.
- *
- * - Checks if the session token exists and is active.
- * - Revokes the session to prevent further use.
- *
- * @param prisma - The Prisma client instance for database operations.
- * @param config - The configuration for session management.
- * @param rawToken - The session token to revoke.
- * @returns A result indicating whether the session was successfully revoked.
- */
-export async function revokeSession(
-  prisma: PrismaClient,
-  config: Required<SpectraAuthConfig>,
-  rawToken: string,
-): Promise<SpectraAuthResult> {
-  const { logger } = config;
-  try {
-    // Step 1: Extract token parts
-    const prefix = rawToken.slice(0, 16);
-    const suffix = rawToken.slice(16);
-
-    // Step 2: Find the session
-    const session = (await prisma.session.findFirst({
-      where: {
-        tokenPrefix: prefix,
-        isRevoked: false,
-        expiresAt: { gt: new Date() },
-      },
-    })) as AuthSession | null;
-
-    if (!session || !session.tokenHash) {
-      return { error: true, status: 404, message: "Session not found." };
-    }
-
-    // Step 3: Verify the token suffix
-    const match = await verifySuffixHash(session.tokenHash, suffix);
-    if (!match) {
-      return {
-        error: true,
-        status: 401,
-        message: "Session invalid or expired.",
-      };
-    }
-
-    // Step 4: Revoke the session
-    await prisma.session.update({
-      where: { id: session.id },
-      data: { isRevoked: true },
-    });
-    logger.info("Session revoked", { sessionId: session.id });
-
-    return {
-      error: false,
-      status: 200,
-      message: "Session revoked successfully.",
-    };
-  } catch (err) {
-    logger.error("Failed to revoke session", { error: err });
-    return {
-      error: true,
-      status: 500,
-      message: (err as Error).message || "Failed to revoke session",
-    };
-  }
 }

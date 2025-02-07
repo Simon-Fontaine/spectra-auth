@@ -98,4 +98,42 @@ export class EmailNotVerifiedError extends Error {
   }
 }
 
-// Add more custom error classes as needed (e.g., for configuration errors, session errors, etc.)
+/**
+ * Custom error class for session not found errors.
+ */
+export class SessionNotFoundError extends Error {
+  status: number;
+  code: string;
+
+  constructor(
+    message = "Session not found.",
+    status = 404,
+    code = "E_SESSION_NOT_FOUND",
+  ) {
+    super(message);
+    this.name = "SessionNotFoundError";
+    this.status = status;
+    this.code = code;
+    Object.setPrototypeOf(this, SessionNotFoundError.prototype);
+  }
+}
+
+/**
+ * Custom error class for session revoked errors.
+ */
+export class SessionRevokedError extends Error {
+  status: number;
+  code: string;
+
+  constructor(
+    message = "Session has been revoked.",
+    status = 401,
+    code = "E_SESSION_REVOKED",
+  ) {
+    super(message);
+    this.name = "SessionRevokedError";
+    this.status = status;
+    this.code = code;
+    Object.setPrototypeOf(this, SessionRevokedError.prototype);
+  }
+}

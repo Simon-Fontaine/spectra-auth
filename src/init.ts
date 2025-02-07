@@ -1,16 +1,14 @@
 import type { PrismaClient } from "@prisma/client";
 import { defaultConfig, mergeConfig, validateConfig } from "./config";
 import {
-  clearSessionCookie,
-  createSessionCookie,
-  getSessionTokenFromHeaders,
-} from "./cookies";
-import {
   clearCSRFCookieFactory,
+  clearSessionCookieFactory,
   completePasswordResetFactory,
   createCSRFCookieFactory,
+  createSessionCookieFactory,
   createSessionFactory,
   createVerificationTokenFactory,
+  getSessionTokenFromHeadersFactory,
   initiatePasswordResetFactory,
   loginUserFactory,
   logoutUserFactory,
@@ -73,6 +71,9 @@ export function initSpectraAuth<T extends PrismaClient>(
   const createCSRFCookie = createCSRFCookieFactory(prisma, config);
   const validateCSRFCookie = validateCSRFCookieFactory(prisma, config);
   const clearCSRFCookie = clearCSRFCookieFactory(config);
+  const createSessionCookie = createSessionCookieFactory(config);
+  const clearSessionCookie = clearSessionCookieFactory(config);
+  const getSessionTokenFromHeaders = getSessionTokenFromHeadersFactory(config);
 
   // Step 5: Return all methods in a single object
   return {
@@ -98,11 +99,9 @@ export function initSpectraAuth<T extends PrismaClient>(
     verifyEmail,
 
     // Cookies: session management
-    createSessionCookie: (rawToken: string, maxAgeSeconds: number) =>
-      createSessionCookie(rawToken, maxAgeSeconds, config), // Pass config
-    clearSessionCookie: () => clearSessionCookie(config), // Pass config
-    getSessionTokenFromHeader: (cookieHeader: string | undefined) =>
-      getSessionTokenFromHeaders(cookieHeader, config), // Pass config
+    createSessionCookie,
+    clearSessionCookie,
+    getSessionTokenFromHeaders,
 
     // Cookies: CSRF protection
     createCSRFCookie,

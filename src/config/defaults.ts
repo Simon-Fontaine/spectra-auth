@@ -24,6 +24,10 @@ export const defaultConfig: Required<SpectraAuthConfig> = {
     cookieSameSite: "lax", // Lax is usually a good default for usability and decent CSRF protection
     cookieHttpOnly: true, // Always HttpOnly for session cookies
     maxSessionsPerUser: 5, // Limit concurrent sessions per user to 5 (example)
+    /**
+     * If > 0, after this many seconds, a valid session is automatically "rolled".
+     */
+    rollingIntervalSec: 60 * 60, // 1 hour as a default example (0 means disabled).
   },
 
   // Rate limiting configuration (IP-based)

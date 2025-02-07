@@ -22,6 +22,35 @@ export interface AuthSession {
   csrfSecret: string | null;
   isRevoked: boolean;
   expiresAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+  // Optional device info
+  ipAddress: string | null;
+  location: string | null;
+  country: string | null;
+  device: string | null;
+  browser: string | null;
+  userAgent: string | null;
+}
+
+/**
+ * Cleaned-up session fields that are safe to return in API responses.
+ */
+export interface CleanAuthSession {
+  id: string;
+  userId: string;
+  isRevoked: boolean;
+  expiresAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+  rawToken: string | null;
+  // Optional device info
+  ipAddress: string | null;
+  location: string | null;
+  country: string | null;
+  device: string | null;
+  browser: string | null;
+  userAgent: string | null;
 }
 
 /**
@@ -32,6 +61,9 @@ export interface AuthVerification {
   userId: string;
   token: string;
   type: string;
+  metadata?: Record<string, unknown>;
   expiresAt: Date;
   usedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
 }

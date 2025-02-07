@@ -21,6 +21,7 @@ export interface SessionConfig {
   cookieSameSite: "lax" | "strict" | "none";
   cookieHttpOnly: boolean;
   maxSessionsPerUser?: number;
+  rollingIntervalSec: number;
 }
 
 export interface RateLimitConfig {

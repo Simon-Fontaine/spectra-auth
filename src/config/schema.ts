@@ -25,6 +25,7 @@ export const configSchema = z.object({
       cookieSameSite: z.enum(["Strict", "Lax", "None"]).default("Lax"),
       cookieHttpOnly: z.boolean().default(true),
       maxSessionsPerUser: z.number().int().positive().optional(), // Optional limit on concurrent sessions
+      rollingIntervalSec: z.number().int().nonnegative().default(0), // Rolling interval in seconds (0 to disable)
     })
     .required(),
 

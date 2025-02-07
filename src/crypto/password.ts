@@ -22,7 +22,7 @@ export async function hashPassword(
 
     // Step 2: Hash the password using Argon2id with secure parameters
     return await hashArgon2(peppered, {
-      mem: 4096, // 4MB memory cost
+      mem: 1024 * 64, // 64 MB memory cost
       time: 3, // 3 iterations
       parallelism: 1, // Single thread (suitable for WASM environments)
       saltSize: 16, // 128-bit salt for randomness

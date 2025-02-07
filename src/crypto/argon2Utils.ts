@@ -32,7 +32,12 @@ function generateRandomSalt(bytes: number): Uint8Array {
  */
 export async function hashArgon2(
   pass: string,
-  { mem = 4096, time = 3, parallelism = 1, saltSize = 16 }: Argon2Options = {},
+  {
+    mem = 1024 * 64, // 64 MB
+    time = 3,
+    parallelism = 1,
+    saltSize = 16,
+  }: Argon2Options = {},
 ): Promise<string> {
   const result = await hash({
     pass,

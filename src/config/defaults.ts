@@ -8,8 +8,8 @@ import type { SpectraAuthConfig } from "../types";
  */
 export const DEFAULT_CONFIG: SpectraAuthConfig = {
   session: {
-    maxAgeSec: 900, // 15 minutes session expiration
-    updateAgeSec: 0, // No sliding session renewal
+    maxAgeSec: 3600, // 1-hour session duration
+    updateAgeSec: 300, // 5-minute session update interval
     maxSessionsPerUser: 5, // Limit active sessions per user
   },
   accountLock: {

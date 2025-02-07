@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
-import { mergeConfig } from "./config/defaults";
+import { validateConfig } from "./config";
+import { defaultConfig, mergeConfig } from "./config/defaults";
 import {
   clearSessionCookie,
   createSessionCookie,
@@ -26,7 +27,6 @@ import {
   verifyEmailFactory,
 } from "./internal/verifyFactories";
 import type { SpectraAuthConfig } from "./types";
-import { validateConfig } from "./validation/configSchema";
 
 /**
  * Initializes the SpectraAuth library.
@@ -44,7 +44,7 @@ export function initSpectraAuth<T extends PrismaClient>(
   userConfig?: SpectraAuthConfig,
 ) {
   // Step 1: Merge the user-provided config with defaults
-  const config = mergeConfig(userConfig);
+  const config = mergeConfig(userConfig, defaultConfig);
   try {
     validateConfig(config);
   } catch (err) {

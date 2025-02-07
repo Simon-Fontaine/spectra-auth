@@ -1,67 +1,55 @@
-import type { SpectraAuthConfig } from "../types";
+import { getRandomValues } from "uncrypto";
+import { base64Url } from "../crypto";
+import type { SpectraAuthConfig } from "../types"; // Adjust path
+import { consoleLogger } from "../utils/logger"; // Assuming you have a basic console logger utility
 
-/**
- * Default configuration settings for the SpectraAuth authentication system.
- *
- * - Defines session timeouts, rate limits, and security measures.
- * - These settings can be overridden by user-provided configurations.
- */
-export const DEFAULT_CONFIG: SpectraAuthConfig = {
+export const defaultConfig: SpectraAuthConfig = {
   session: {
-    maxAgeSec: 3600, // 1-hour session duration
-    updateAgeSec: 300, // 5-minute session update interval
-    maxSessionsPerUser: 5, // Limit active sessions per user
+    maxAgeSec: 30 * 24 * 3600,
+    updateAgeSec: 24 * 3600,
+    maxSessionsPerUser: 5,
+    cookieSecure: process.env.NODE_ENV === "production", // Secure by default in production
+    cookieSameSite: "lax", // Lax by default
   },
   accountLock: {
-    threshold: 5, // Lock after 5 failed login attempts
-    durationMs: 15 * 60 * 1000, // 15-minute lock duration
+    threshold: 5,
+    durationMs: 15 * 60 * 1000, // 15 minutes
   },
   rateLimit: {
-    disable: false, // Rate limiting enabled
-    kvRestApiUrl: "", // Placeholder for Upstash REST API URL
-    kvRestApiToken: "", // Placeholder for Upstash API token
+    disable: false, // Rate limiting enabled by default
+    kvRestApiUrl: process.env.KV_REST_API_URL,
+    kvRestApiToken: process.env.KV_REST_API_TOKEN,
   },
   routeRateLimit: {
-    login: {
-      attempts: 10, // 10 login attempts per 5 minutes
-      windowSeconds: 300, // 5-minute window for login
-    },
-    register: {
-      attempts: 5, // 5 registration attempts per 15 minutes
-      windowSeconds: 900, // 15-minute window for registration
-    },
-    passwordReset: {
-      attempts: 3, // 3 reset attempts per 20 minutes
-      windowSeconds: 1200, // 20-minute window for password reset
-    },
+    // Example route rate limits
+    login: { attempts: 5, windowSeconds: 60 }, // 5 login attempts per minute
+    register: { attempts: 3, windowSeconds: 60 }, // 3 register attempts per minute
+    passwordReset: { attempts: 3, windowSeconds: 60 * 10 }, // 3 password reset attempts per 10 minutes
   },
   csrf: {
-    enabled: true, // Enable CSRF protection
-    secret: process.env.CSRF_SECRET || "CHANGE_ME_IN_PROD", // Default or env-provided CSRF secret
+    enabled: true, // CSRF protection enabled by default
+    secret: process.env.CSRF_SECRET || generateRandomSecret(32), // Fallback to random secret if not in env
   },
-  passwordPepper: process.env.PASSWORD_PEPPER || "CHANGE_ME_IN_PROD", // Default or env-provided password pepper for Argon2
-  logger: {
-    ...console,
-    securityEvent: (message: string, ...args: unknown[]) => {
-      console.info("[Security Event]:", message, ...args);
-    },
-  },
+  passwordPepper: process.env.PASSWORD_PEPPER || generateRandomSecret(16), // Fallback to random pepper
+  logger: consoleLogger, // Default to console logger
 };
 
-/**
- * Merges user-provided configuration with the default configuration.
- *
- * - User settings override the default values if provided.
- * - Ensures required properties are always set.
- *
- * @param userConfig - The user-defined configuration settings.
- * @returns A complete and merged configuration object.
- */
 export function mergeConfig(
   userConfig: SpectraAuthConfig | undefined,
+  defaultCfg: SpectraAuthConfig,
 ): Required<SpectraAuthConfig> {
   return {
-    ...DEFAULT_CONFIG,
+    ...defaultCfg,
     ...(userConfig || {}),
   };
+}
+
+/**
+ * Generates a random secret string (base64url encoded).
+ * Used for CSRF secret and password pepper if not provided in environment variables.
+ * @param lengthBytes Length of the secret in bytes.
+ * @returns A base64url encoded random secret.
+ */
+function generateRandomSecret(lengthBytes: number): string {
+  return base64Url.encode(getRandomValues(new Uint8Array(lengthBytes)));
 }

@@ -40,7 +40,12 @@ export const DEFAULT_CONFIG: SpectraAuthConfig = {
     secret: process.env.CSRF_SECRET || "CHANGE_ME_IN_PROD", // Default or env-provided CSRF secret
   },
   passwordPepper: process.env.PASSWORD_PEPPER || "CHANGE_ME_IN_PROD", // Default or env-provided password pepper for Argon2
-  logger: console, // Default logger using the console
+  logger: {
+    ...console,
+    securityEvent: (message: string, ...args: unknown[]) => {
+      console.info("[Security Event]:", message, ...args);
+    },
+  },
 };
 
 /**

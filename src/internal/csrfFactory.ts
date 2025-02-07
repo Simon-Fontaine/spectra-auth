@@ -63,9 +63,11 @@ export function csrfFactory(
     return serialize(CSRF_COOKIE_NAME, csrfRawHex, {
       httpOnly: false,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      sameSite: "lax",
       path: "/",
       maxAge: config.session.maxAgeSec,
+      domain: process.env.COOKIE_DOMAIN,
+      partitioned: true,
     });
   }
 

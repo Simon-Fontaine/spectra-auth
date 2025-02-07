@@ -32,6 +32,8 @@ model User {
   sessions      Session[]
   verifications Verification[]
 
+  @@index([email, isBanned])
+  @@index([lockedUntil])
   @@map("users")
 }
 
@@ -55,6 +57,8 @@ model Session {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([expiresAt])
+  @@index([isRevoked])
   @@index([tokenPrefix])
   @@map("sessions")
 }

@@ -26,6 +26,7 @@ import {
   verifyEmailFactory,
 } from "./internal/verifyFactories";
 import type { SpectraAuthConfig } from "./types";
+import { validateConfig } from "./validation/configSchema";
 
 /**
  * Initializes the SpectraAuth library.
@@ -44,6 +45,11 @@ export function initSpectraAuth<T extends PrismaClient>(
 ) {
   // Step 1: Merge the user-provided config with defaults
   const config = mergeConfig(userConfig);
+  try {
+    validateConfig(config);
+  } catch (err) {
+    throw new Error(`Invalid configuration: ${(err as Error).message}`);
+  }
 
   // Step 2: Validate rate limiting configuration if enabled
   if (!config.rateLimit.disable) {

@@ -1,4 +1,4 @@
-export * from "./csrfFactory";
+export * from "./csrfFactories";
 export * from "./loginLogoutFactories";
 export * from "./registerFactory";
 export * from "./resetFactories";

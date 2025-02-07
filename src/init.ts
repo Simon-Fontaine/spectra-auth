@@ -1,22 +1,23 @@
 import type { PrismaClient } from "@prisma/client";
 import { defaultConfig, mergeConfig, validateConfig } from "./config";
 import {
-  clearCSRFCookie,
   clearSessionCookie,
   createSessionCookie,
   getSessionTokenFromHeader,
 } from "./cookies";
 import {
+  clearCSRFCookieFactory,
   completePasswordResetFactory,
+  createCSRFCookieFactory,
   createSessionFactory,
   createVerificationTokenFactory,
-  csrfFactory,
   initiatePasswordResetFactory,
   loginUserFactory,
   logoutUserFactory,
   registerUserFactory,
   revokeSessionFactory,
   useVerificationTokenFactory,
+  validateCSRFCookieFactory,
   validateSessionFactory,
   verifyEmailFactory,
 } from "./internal";
@@ -69,22 +70,9 @@ export function initSpectraAuth<T extends PrismaClient>(
   );
   const useVerificationToken = useVerificationTokenFactory(prisma, config);
   const verifyEmail = verifyEmailFactory(prisma, config);
-
-  // Step 4: Initialize CSRF protection methods, inject logger and updated config
-  const {
-    createCSRFCookie: csrfCookieCreator,
-    getCSRFTokenFromCookies: csrfTokenFromCookiesGetter,
-    validateCSRFToken: csrfTokenValidator,
-  } = csrfFactory(prisma, config); // Destructure and rename for clarity
-
-  const enhancedCreateCSRFCookie = async (sessionToken: string) => {
-    if (!config.csrf.enabled) return ""; // Return empty string if CSRF disabled
-    return csrfCookieCreator(sessionToken);
-  };
-  const enhancedClearCSRFCookie = async () => {
-    if (!config.csrf.enabled) return ""; // Return empty string if CSRF disabled
-    return clearCSRFCookie(config);
-  };
+  const createCSRFCookie = createCSRFCookieFactory(prisma, config);
+  const validateCSRFCookie = validateCSRFCookieFactory(prisma, config);
+  const clearCSRFCookie = clearCSRFCookieFactory(config);
 
   // Step 5: Return all methods in a single object
   return {
@@ -116,9 +104,8 @@ export function initSpectraAuth<T extends PrismaClient>(
     getSessionTokenFromHeader,
 
     // Cookies: CSRF protection
-    createCSRFCookie: enhancedCreateCSRFCookie, // Use enhanced version respecting config
-    clearCSRFCookie: enhancedClearCSRFCookie, // Use enhanced version respecting config
-    getCSRFTokenFromCookies: csrfTokenFromCookiesGetter,
-    validateCSRFToken: csrfTokenValidator,
+    createCSRFCookie,
+    validateCSRFCookie,
+    clearCSRFCookie,
   };
 }

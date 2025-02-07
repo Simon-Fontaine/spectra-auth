@@ -52,6 +52,6 @@ export interface CSRFConfig {
   tokenLengthBytes: number;
   cookieSecure: boolean;
   cookieHttpOnly: boolean;
-  cookieSameSite: "Strict" | "Lax" | "None";
+  cookieSameSite: "strict" | "lax" | "none";
   maxAgeSec: number;
 }

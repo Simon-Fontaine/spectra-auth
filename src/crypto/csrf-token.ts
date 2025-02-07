@@ -1,79 +1,52 @@
 import { getRandomValues } from "uncrypto";
 import type { SpectraAuthConfig } from "../types";
-import { base64Url } from "./base64";
-import { timingSafeEqual } from "./buffer";
+import { hex } from "./hex"; // or base64 / base64url if you prefer
 import { createHMAC } from "./hmac";
 
-const CSRF_TOKEN_LENGTH_BYTES = 32; // 32 bytes = 256 bits, good security level
-const CSRF_SECRET_LENGTH_BYTES = 32;
-
-function randomBytes(length: number): Uint8Array {
-  return getRandomValues(new Uint8Array(length));
-}
-
 /**
- * Generates a cryptographically secure CSRF secret.
- * @returns A base64url encoded CSRF secret.
- */
-export async function generateCSRFSecret(): Promise<string> {
-  return base64Url.encode(randomBytes(CSRF_SECRET_LENGTH_BYTES));
-}
-
-/**
- * Generates a CSRF token by combining a random token part and a signature.
+ * Generates a random CSRF token (e.g., 32 bytes) and returns it as a hex string.
  *
- * @param sessionToken The session token associated with the user's session.
- * @param csrfSecret The CSRF secret specific to the session.
- * @param config SpectraAuth configuration.
- * @returns A string representing the CSRF token (tokenPart.signaturePart).
+ * @param size - Number of random bytes; 16-32 is typical.
  */
-export async function generateCSRFToken(
-  sessionToken: string,
-  csrfSecret: string,
+export function generateRandomCSRFToken(size = 32): string {
+  const raw = new Uint8Array(size);
+  getRandomValues(raw);
+  return hex.encode(raw);
+}
+
+/**
+ * Computes the HMAC of a raw CSRF token using the server-side `config.session.csrfSecret`.
+ *
+ * @param rawCsrfToken - The raw token string (unhashed) that will be stored in the cookie.
+ * @param config       - Full config, containing `session.csrfSecret`.
+ * @returns The HMAC (hex-encoded by default) of the raw token.
+ */
+export async function computeCsrfTokenHmac(
+  rawCsrfToken: string,
   config: Required<SpectraAuthConfig>,
 ): Promise<string> {
-  const data = `${sessionToken}.${csrfSecret}`;
-  const signature = await createHMAC("SHA-256", "base64urlnopad").sign(
+  return createHMAC("SHA-256", "hex").sign(
     config.session.csrfSecret,
-    data,
-  );
-  return `${base64Url.encode(randomBytes(CSRF_TOKEN_LENGTH_BYTES))}.${signature}`; // tokenPart.signaturePart
+    rawCsrfToken,
+  ) as Promise<string>; // We'll use hex-encoded signatures
 }
 
 /**
- * Validates a submitted CSRF token against the expected values.
+ * Verifies that a raw CSRF token’s HMAC matches the stored HMAC.
  *
- * @param sessionToken The session token from the request cookies.
- * @param csrfCookieToken The CSRF token from the request cookies.
- * @param csrfSubmittedToken The CSRF token submitted in the request header or body.
- * @param csrfSecret The CSRF secret associated with the session.
- * @param config SpectraAuth configuration.
- * @returns True if the CSRF token is valid, false otherwise.
+ * @param rawCsrfToken - The raw token from the client cookie.
+ * @param storedHmac   - The HMAC stored in the DB for this session.
+ * @param config       - Full config with `session.csrfSecret`.
+ * @returns true if the HMAC matches, otherwise false.
  */
-export async function verifyCSRFToken(
-  sessionToken: string,
-  csrfCookieToken: string | undefined,
-  csrfSubmittedToken: string | undefined,
-  csrfSecret: string,
+export async function verifyCsrfHmac(
+  rawCsrfToken: string,
+  storedHmac: string,
   config: Required<SpectraAuthConfig>,
 ): Promise<boolean> {
-  if (!csrfCookieToken || !csrfSubmittedToken) {
-    return false;
-  }
-
-  const [tokenPart, signaturePart] = csrfSubmittedToken.split(".");
-  if (!tokenPart || !signaturePart) {
-    return false; // Invalid format
-  }
-
-  const expectedSignature = await createHMAC("SHA-256", "base64urlnopad").sign(
+  return createHMAC("SHA-256", "hex").verify(
     config.session.csrfSecret,
-    `${sessionToken}.${csrfSecret}`,
+    rawCsrfToken,
+    storedHmac,
   );
-
-  // Use timingSafeEqual to prevent timing attacks
-  const submittedSignatureBuffer = base64Url.decode(signaturePart);
-  const expectedSignatureBuffer = base64Url.decode(expectedSignature);
-
-  return timingSafeEqual(submittedSignatureBuffer, expectedSignatureBuffer);
 }

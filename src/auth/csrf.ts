@@ -1,185 +1,113 @@
 import type { PrismaClient } from "@prisma/client";
-import { createCSRFCookie } from "../cookies";
-import { generateCSRFToken, verifyCSRFToken } from "../crypto";
-import type {
-  AuthSession,
-  SpectraAuthConfig,
-  SpectraAuthResult,
-} from "../types";
+import {
+  clearCSRFCookie,
+  createCSRFCookie,
+  getCSRFTokenFromCookies,
+} from "../cookies/csrf";
+import {
+  computeCsrfTokenHmac,
+  generateRandomCSRFToken,
+  verifyCsrfHmac,
+} from "../crypto/csrf-token";
+import type { SpectraAuthConfig } from "../types";
 
-export async function createCSRFSecret(
+/**
+ * Creates a new CSRF token for the given session by:
+ *  1. Generating a random token (raw),
+ *  2. Computing the HMAC (with config.session.csrfSecret),
+ *  3. Storing that HMAC in the DB,
+ *  4. Returning the Set-Cookie header string for the raw token.
+ */
+export async function createCSRFForSession(
   prisma: PrismaClient,
   config: Required<SpectraAuthConfig>,
   sessionToken: string,
-): Promise<SpectraAuthResult> {
-  if (!config.csrf.enabled)
-    return {
-      error: false,
-      status: 200,
-      message: "CSRF protection is disabled.",
-    };
-
-  const csrfSecretHash = await generateCSRFToken(
-    sessionToken,
-    config.session.csrfSecret,
-    config,
-  );
-
-  const sessionPrefix = sessionToken.slice(
-    0,
-    config.session.tokenPrefixLengthBytes * 2,
-  ); // Extract session prefix
-
-  // Step 1: Find session by prefix
-  const session = (await prisma.session.findFirst({
-    where: { tokenPrefix: sessionPrefix },
-  })) as AuthSession | null;
-
-  if (!session) {
-    config.logger.warn(
-      "CSRF Cookie creation: Session not found (prefix lookup)",
-      { tokenPrefix: sessionPrefix },
-    );
-    return {
-      error: true,
-      status: 403,
-      message: "Invalid CSRF token.",
-    };
+): Promise<string> {
+  if (!config.csrf.enabled) {
+    // If CSRF is disabled, return an empty header
+    return "";
   }
 
-  // Step 2: Update session with CSRF secret hash
+  const tokenPrefix = sessionToken.slice(
+    0,
+    config.session.tokenPrefixLengthBytes * 2,
+  );
+
+  const session = await prisma.session.findFirst({
+    where: { tokenPrefix, isRevoked: false },
+  });
+  if (!session) throw new Error("Session not found or is revoked.");
+
+  const rawCsrfToken = generateRandomCSRFToken(32);
+  const hmac = await computeCsrfTokenHmac(rawCsrfToken, config);
+
   await prisma.session.update({
     where: { id: session.id },
-    data: { csrfSecret: csrfSecretHash }, // Store the HMAC hash of the CSRF token
+    data: { csrfSecret: hmac },
   });
 
-  config.logger.debug("CSRF cookie created and secret stored", {
-    sessionId: session.id,
-  });
-
-  const csrfCooke = createCSRFCookie(
-    csrfSecretHash,
-    config.session.maxAgeSec,
-    config,
-  );
-  return {
-    error: false,
-    status: 200,
-    message: "CSRF secret created and stored.",
-    data: {
-      csrfCookie: csrfCooke,
-    },
-  };
+  return createCSRFCookie(rawCsrfToken, config);
 }
 
-export async function validateCSRFToken(
+/**
+ * Validates a submitted CSRF token for a given session token.
+ *  - Extracts raw token from cookie and request body/header
+ *  - Recomputes HMAC, compares with DB
+ *  - Returns true if valid, else false
+ */
+export async function validateCSRFForSession(
   prisma: PrismaClient,
   config: Required<SpectraAuthConfig>,
-  options: ValidateCSRFTokenOptions,
-): Promise<SpectraAuthResult> {
-  if (!config.csrf.enabled) {
-    return {
-      error: false,
-      status: 200,
-      message: "CSRF protection is disabled.",
-    };
-  }
+  sessionToken: string,
+  cookieHeader: string | undefined,
+  csrfSubmittedVal: string | undefined,
+): Promise<boolean> {
+  if (!config.csrf.enabled) return true; // If disabled, skip check
 
-  const { sessionToken, csrfCookieValue, csrfSubmittedValue } = options;
-
-  if (!sessionToken || !csrfCookieValue || !csrfSubmittedValue) {
-    config.logger.warn("CSRF validation failed: missing tokens", {
-      sessionToken: !!sessionToken,
-      csrfCookie: !!csrfCookieValue,
-      csrfSubmitted: !!csrfSubmittedValue,
+  const rawCsrfCookieVal = getCSRFTokenFromCookies(cookieHeader, config);
+  if (!rawCsrfCookieVal || !csrfSubmittedVal) {
+    config.logger.warn("CSRF validation: missing tokens", {
+      hasCookieVal: !!rawCsrfCookieVal,
+      hasSubmittedVal: !!csrfSubmittedVal,
     });
-    return {
-      error: true,
-      status: 403,
-      message: "Invalid CSRF token.",
-    };
+    return false;
   }
 
-  if (csrfCookieValue !== csrfSubmittedValue) {
-    config.logger.warn(
-      "CSRF validation failed: cookie and submitted token mismatch",
-      { tokenPrefix: `${sessionToken.slice(0, 8)}...` },
-    );
-    return {
-      error: true,
-      status: 403,
-      message: "Invalid CSRF token.",
-    };
+  if (rawCsrfCookieVal !== csrfSubmittedVal) {
+    config.logger.warn("CSRF mismatch: cookie vs. submitted mismatch");
+    return false;
   }
 
-  const sessionPrefix = sessionToken.slice(
+  const tokenPrefix = sessionToken.slice(
     0,
     config.session.tokenPrefixLengthBytes * 2,
   );
-
-  // Step 1: Find session by prefix
-  const session = (await prisma.session.findFirst({
-    where: { tokenPrefix: sessionPrefix },
-  })) as AuthSession | null;
-
+  const session = await prisma.session.findFirst({
+    where: { tokenPrefix, isRevoked: false },
+  });
   if (!session) {
-    config.logger.warn(
-      "CSRF validation failed: Session not found (prefix lookup)",
-      { tokenPrefix: sessionPrefix },
-    );
-    return {
-      error: true,
-      status: 403,
-      message: "Invalid CSRF token.",
-    };
+    config.logger.warn("CSRF validation: session not found or revoked");
+    return false;
   }
-
   if (!session.csrfSecret) {
-    config.logger.warn(
-      "CSRF validation failed: No CSRF secret found for session",
-      { sessionId: session.id, tokenPrefix: sessionPrefix },
-    );
-    return {
-      error: true,
-      status: 403,
-      message: "Invalid CSRF token.",
-    };
+    config.logger.warn("CSRF validation: no csrfSecret in session");
+    return false;
   }
 
-  // Step 2: Verify submitted CSRF token against the stored secret hash
-  const isCsrfValid = await verifyCSRFToken(
-    session.tokenHash || "",
+  const valid = await verifyCsrfHmac(
+    rawCsrfCookieVal,
     session.csrfSecret,
-    csrfCookieValue,
-    config.session.csrfSecret,
     config,
   );
-
-  if (!isCsrfValid) {
-    config.logger.warn("CSRF validation failed: Token verification failed", {
-      sessionId: session.id,
-      tokenPrefix: sessionPrefix,
-    });
-    return {
-      error: true,
-      status: 403,
-      message: "Invalid CSRF token.",
-    };
-  }
-
-  config.logger.debug("CSRF validation successful", {
-    sessionId: session.id,
-    tokenPrefix: sessionPrefix,
-  });
-  return {
-    error: false,
-    status: 200,
-    message: "CSRF token is valid.",
-  };
+  if (!valid) config.logger.warn("CSRF validation: HMAC mismatch");
+  return valid;
 }
 
-interface ValidateCSRFTokenOptions {
-  sessionToken: string;
-  csrfCookieValue: string | undefined;
-  csrfSubmittedValue: string | undefined;
+/**
+ * Clears the CSRF cookie (e.g., on logout).
+ */
+export function clearCSRFForSession(
+  config: Required<SpectraAuthConfig>,
+): string {
+  return clearCSRFCookie(config);
 }

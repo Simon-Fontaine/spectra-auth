@@ -3,7 +3,7 @@ import { defaultConfig, mergeConfig, validateConfig } from "./config";
 import {
   clearSessionCookie,
   createSessionCookie,
-  getSessionTokenFromHeader,
+  getSessionTokenFromHeaders,
 } from "./cookies";
 import {
   clearCSRFCookieFactory,
@@ -101,7 +101,8 @@ export function initSpectraAuth<T extends PrismaClient>(
     createSessionCookie: (rawToken: string, maxAgeSeconds: number) =>
       createSessionCookie(rawToken, maxAgeSeconds, config), // Pass config
     clearSessionCookie: () => clearSessionCookie(config), // Pass config
-    getSessionTokenFromHeader,
+    getSessionTokenFromHeader: (cookieHeader: string | undefined) =>
+      getSessionTokenFromHeaders(cookieHeader, config), // Pass config
 
     // Cookies: CSRF protection
     createCSRFCookie,

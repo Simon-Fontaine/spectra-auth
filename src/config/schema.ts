@@ -81,7 +81,12 @@ export const configSchema = z.object({
         .default(60 * 60 * 1000), // Milliseconds
     })
     .required(),
-
+  passwordHashOptions: z.object({
+    time: z.number().int().positive().default(2),
+    mem: z.number().int().positive().default(65536),
+    parallelism: z.number().int().positive().default(2),
+    hashLen: z.number().int().positive().default(32),
+  }),
   passwordPepper: z
     .string()
     .min(16)

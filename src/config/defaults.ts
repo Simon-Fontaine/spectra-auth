@@ -57,8 +57,13 @@ export const defaultConfig: Required<SpectraAuthConfig> = {
   },
 
   // Password hashing configuration
-  passwordPepper:
-    process.env.PASSWORD_PEPPER || "default-insecure-password-pepper", // IMPORTANT: Change in production, use env var!
+  passwordHashOptions: {
+    salt: process.env.PASSWORD_PEPPER || "default-insecure-password-pepper", // IMPORTANT: Change in production, use env var!
+    time: 2, // 2 second hashing time
+    mem: 64 * 1024, // 64 MB memory cost
+    parallelism: 2, // 2 threads
+    hashLen: 32, // 256 bits output hash
+  },
 
   // CSRF protection
   csrf: {

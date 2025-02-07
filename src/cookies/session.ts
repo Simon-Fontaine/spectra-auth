@@ -13,7 +13,7 @@ export function createSessionCookie(
   maxAgeSeconds: number,
   config: Required<SpectraAuthConfig>,
 ): string {
-  return serialize("spectra.sessionToken", sessionToken, {
+  return serialize(config.session.cookieName, sessionToken, {
     httpOnly: true,
     secure: config.session.cookieSecure,
     sameSite: config.session.cookieSameSite,
@@ -40,12 +40,13 @@ export function clearSessionCookie(
  * @param cookieHeader The Cookie header string (or undefined).
  * @returns The session token value or undefined if not found.
  */
-export function getSessionTokenFromHeader(
+export function getSessionTokenFromHeaders(
   cookieHeader: string | undefined,
+  config: Required<SpectraAuthConfig>,
 ): string | undefined {
   if (!cookieHeader) {
     return undefined;
   }
   const cookies = parse(cookieHeader);
-  return cookies["spectra.sessionToken"];
+  return cookies[config.session.cookieName];
 }

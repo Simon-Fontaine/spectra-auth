@@ -19,11 +19,7 @@ export async function hashPassword(
 ): Promise<string> {
   const options: Argon2BrowserHashOptions = {
     pass: plainPassword,
-    salt: config.passwordPepper,
-    parallelism: 2, // Number of threads
-    mem: 1024 * 64, // 64MB, reasonable for browser and Node.js
-    time: 2, // Number of iterations
-    hashLen: 32, // Explicitly set hash length to 32 bytes (256 bits)
+    ...config.passwordHashOptions,
   };
 
   try {
@@ -48,7 +44,7 @@ export async function verifyPassword(
   plainPassword?: string,
   config?: Required<SpectraAuthConfig>,
 ): Promise<boolean> {
-  if (!hashedPassword || !plainPassword || !config?.passwordPepper) {
+  if (!hashedPassword || !plainPassword || !config?.passwordHashOptions.salt) {
     return false;
   }
   const options: Argon2VerifyOptions = {

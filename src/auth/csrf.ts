@@ -2,7 +2,7 @@ import type { PrismaClient } from "@prisma/client";
 import {
   clearCSRFCookie,
   createCSRFCookie,
-  getCSRFTokenFromCookies,
+  getCSRFTokenFromHeaders,
 } from "../cookies/csrf";
 import {
   computeCsrfTokenHmac,
@@ -64,7 +64,7 @@ export async function validateCSRFForSession(
 ): Promise<boolean> {
   if (!config.csrf.enabled) return true; // If disabled, skip check
 
-  const rawCsrfCookieVal = getCSRFTokenFromCookies(cookieHeader, config);
+  const rawCsrfCookieVal = getCSRFTokenFromHeaders(cookieHeader, config);
   if (!rawCsrfCookieVal || !csrfSubmittedVal) {
     config.logger.warn("CSRF validation: missing tokens", {
       hasCookieVal: !!rawCsrfCookieVal,

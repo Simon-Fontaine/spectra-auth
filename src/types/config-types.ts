@@ -6,7 +6,7 @@ export interface SpectraAuthConfig {
   session?: SessionConfig;
   rateLimit?: RateLimitConfig;
   accountLock?: AccountLockConfig;
-  passwordPepper?: string;
+  passwordHashOptions?: PasswordHashConfig;
   csrf?: CSRFConfig;
 }
 
@@ -32,6 +32,13 @@ export interface RateLimitConfig {
   passwordResetRoute?: RouteRateLimitConfig;
 }
 
+export interface PasswordHashConfig {
+  salt: string;
+  time: number;
+  mem: number;
+  parallelism: number;
+  hashLen: number;
+}
 export interface RouteRateLimitConfig {
   enabled: boolean;
   attempts: number;

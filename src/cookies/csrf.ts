@@ -41,7 +41,7 @@ export function clearCSRFCookie(config: Required<SpectraAuthConfig>): string {
  * @param config       - Needed to read config.csrf.cookieName
  * @returns The raw token string if found, undefined otherwise.
  */
-export function getCSRFTokenFromCookies(
+export function getCSRFTokenFromHeaders(
   cookieHeader: string | undefined,
   config: Required<SpectraAuthConfig>,
 ): string | undefined {

@@ -64,7 +64,7 @@ export const configSchema = z.object({
     tokenSecret: z.string().default(process.env.CSRF_SECRET || "change-me"),
     cookieSecure: z.boolean().default(process.env.NODE_ENV === "production"),
     cookieSameSite: z.enum(["strict", "lax", "none"]).default("lax"),
-    cookieHttpOnly: z.boolean().default(true),
+    cookieHttpOnly: z.boolean().default(false),
   }),
 
   // Verification

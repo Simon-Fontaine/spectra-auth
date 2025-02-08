@@ -1,7 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import type { SpectraAuthConfig } from "../config";
 import { generateCsrfToken, generateSessionToken } from "../security";
-import type { ActionResponse, ClientSession } from "../types";
+import { type ActionResponse, type ClientSession, ErrorCodes } from "../types";
 import { clientSafeSession, createTime } from "../utils";
 
 export async function createSession({
@@ -22,6 +22,30 @@ export async function createSession({
   prisma: PrismaClient;
   config: Required<SpectraAuthConfig>;
 }): Promise<ActionResponse<{ session: ClientSession }>> {
+  const activeSessions = await prisma.session.count({
+    where: {
+      userId: options.userId,
+      isRevoked: false,
+    },
+  });
+
+  if (
+    config.session.maxSessionsPerUser > 0 &&
+    activeSessions >= config.session.maxSessionsPerUser
+  ) {
+    config.logger.securityEvent("SESSION_LIMIT_REACHED", {
+      userId: options.userId,
+      maxSessionsPerUser: config.session.maxSessionsPerUser,
+    });
+
+    return {
+      success: false,
+      status: 400,
+      message: "Session limit reached",
+      code: ErrorCodes.SESSION_LIMIT_REACHED,
+    };
+  }
+
   const sessionTokens = await generateSessionToken({ config });
   const sessionExpiry = createTime(config.session.maxAgeSeconds, "s").getDate();
   const csrfTokens = await generateCsrfToken({ config });

@@ -27,7 +27,7 @@ export const defaultConfig = {
     tokenSecret: process.env.CSRF_SECRET || "change-me",
     cookieSecure: process.env.NODE_ENV === "production",
     cookieSameSite: "lax", // "strict" | "lax" | "none"
-    cookieHttpOnly: true,
+    cookieHttpOnly: false, // client-side JS needs access
   },
 
   // Verification

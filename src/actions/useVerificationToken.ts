@@ -23,9 +23,8 @@ export async function useVerificationToken({
 }): Promise<ActionResponse<{ verification: PrismaVerification }>> {
   const { input } = options;
 
-  const verification = (await prisma.verification.update({
-    where: { token: input.token, type: input.type },
-    data: { usedAt: new Date() },
+  const verification = (await prisma.verification.findUnique({
+    where: { token: input.token },
   })) as PrismaVerification | null;
 
   if (!verification) {
@@ -39,6 +38,35 @@ export async function useVerificationToken({
       code: ErrorCodes.INVALID_TOKEN,
     };
   }
+
+  if (verification.type !== input.type) {
+    config.logger.securityEvent("INVALID_TOKEN_TYPE", {
+      route: input.type,
+    });
+    return {
+      success: false,
+      status: 400,
+      message: "Invalid token type.",
+      code: ErrorCodes.INVALID_TOKEN_TYPE,
+    };
+  }
+
+  if (verification.expiresAt < new Date() || verification.usedAt) {
+    config.logger.securityEvent("VERIFICATION_EXPIRED", {
+      route: input.type,
+    });
+    return {
+      success: false,
+      status: 400,
+      message: "Token expired.",
+      code: ErrorCodes.VERIFICATION_EXPIRED,
+    };
+  }
+
+  await prisma.verification.update({
+    where: { id: verification.id },
+    data: { usedAt: new Date() },
+  });
 
   return {
     success: true,

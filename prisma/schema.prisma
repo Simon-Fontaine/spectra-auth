@@ -19,11 +19,13 @@ model User {
   username            String    @unique
   email               String    @unique
   password            String
+  pendingEmail        String?   @unique
   isEmailVerified     Boolean   @default(false)
   isBanned            Boolean   @default(false)
   failedLoginAttempts Int       @default(0)
   lockedUntil         DateTime?
   // Additional fields optional
+  avatarUrl           String?
   displayName         String?
   roles               String[]
   createdAt           DateTime  @default(now())
@@ -38,22 +40,23 @@ model User {
 }
 
 model Session {
-  id          String   @id @default(uuid())
-  userId      String
-  tokenPrefix String?
-  tokenHash   String?
-  csrfSecret  String?
-  isRevoked   Boolean  @default(false)
-  expiresAt   DateTime
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String   @id @default(uuid())
+  userId        String
+  tokenPrefix   String   @unique
+  tokenHash     String   @unique
+  csrfTokenHash String   @unique
+  isRevoked     Boolean  @default(false)
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
   // Optional device info
-  ipAddress   String?
-  location    String?
-  country     String?
-  device      String?
-  browser     String?
-  userAgent   String?
+  ipAddress     String?
+  location      String?
+  country       String?
+  device        String?
+  browser       String?
+  os            String?
+  userAgent     String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

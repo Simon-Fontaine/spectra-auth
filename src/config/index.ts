@@ -1,2 +1,2 @@
-export * from "./defaults";
+export * from "./default";
 export * from "./schema";

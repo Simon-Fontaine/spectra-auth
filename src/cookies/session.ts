@@ -1,52 +1,36 @@
-import { parse, serialize } from "cookie";
-import type { SpectraAuthConfig } from "../types";
-/**
- * Creates a session cookie.
- *
- * @param sessionToken The session token value.
- * @param maxAgeSeconds Cookie max-age in seconds.
- * @param config SpectraAuth configuration.
- * @returns The serialized session cookie string (for Set-Cookie header).
- */
-export function createSessionCookie(
-  sessionToken: string,
-  maxAgeSeconds: number,
-  config: Required<SpectraAuthConfig>,
-): string {
-  return serialize(config.session.cookieName, sessionToken, {
-    httpOnly: true,
+import { parse as parseCookie, serialize as serializeCookie } from "cookie";
+import type { SpectraAuthConfig } from "../config";
+
+export function createSessionCookie({
+  sessionToken,
+  config,
+}: { sessionToken: string; config: Required<SpectraAuthConfig> }): string {
+  return serializeCookie(config.session.cookieName, sessionToken, {
+    maxAge: config.session.maxAgeSeconds,
     secure: config.session.cookieSecure,
+    httpOnly: config.session.cookieHttpOnly,
     sameSite: config.session.cookieSameSite,
     path: "/",
-    maxAge: maxAgeSeconds,
   });
 }
 
-/**
- * Clears the session cookie by setting its max-age to 0.
- *
- * @param config SpectraAuth configuration.
- * @returns The serialized session cookie string for clearing (Set-Cookie header).
- */
-export function clearSessionCookie(
-  config: Required<SpectraAuthConfig>,
-): string {
-  return createSessionCookie("", 0, config);
+export function clearSessionCookie({
+  config,
+}: { config: Required<SpectraAuthConfig> }): string {
+  return serializeCookie(config.session.cookieName, "", {
+    maxAge: 0,
+    secure: config.session.cookieSecure,
+    httpOnly: config.session.cookieHttpOnly,
+    sameSite: config.session.cookieSameSite,
+  });
 }
 
-/**
- * Extracts the session token from the Cookie header.
- *
- * @param cookieHeader The Cookie header string (or undefined).
- * @returns The session token value or undefined if not found.
- */
-export function getSessionTokenFromHeaders(
-  cookieHeader: string | undefined,
-  config: Required<SpectraAuthConfig>,
-): string | undefined {
-  if (!cookieHeader) {
-    return undefined;
-  }
-  const cookies = parse(cookieHeader);
-  return cookies[config.session.cookieName];
+export function getSessionToken({
+  cookieHeader,
+  config,
+}: { cookieHeader: string; config: Required<SpectraAuthConfig> }):
+  | string
+  | undefined {
+  const sessionToken = parseCookie(cookieHeader)[config.session.cookieName];
+  return sessionToken;
 }

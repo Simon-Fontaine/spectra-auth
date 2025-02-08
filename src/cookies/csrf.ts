@@ -1,51 +1,36 @@
-import { parse, serialize } from "cookie";
-import type { SpectraAuthConfig } from "../types";
+import { parse as parseCookie, serialize as serializeCookie } from "cookie";
+import type { SpectraAuthConfig } from "../config";
 
-/**
- * Creates (or updates) the CSRF cookie with the raw token (unhashed).
- *
- * @param rawToken - The random, raw CSRF token string.
- * @param config   - Required config to know cookie properties (secure, sameSite, etc.).
- * @returns The full "Set-Cookie" header string for this CSRF cookie.
- */
-export function createCSRFCookie(
-  rawToken: string,
-  config: Required<SpectraAuthConfig>,
-): string {
-  return serialize(config.csrf.cookieName, rawToken, {
-    httpOnly: config.csrf.cookieHttpOnly,
+export function createCsrfCookie({
+  csrfToken,
+  config,
+}: { csrfToken: string; config: Required<SpectraAuthConfig> }): string {
+  return serializeCookie(config.csrf.cookieName, csrfToken, {
+    maxAge: config.csrf.maxAgeSeconds,
     secure: config.csrf.cookieSecure,
+    httpOnly: config.csrf.cookieHttpOnly,
     sameSite: config.csrf.cookieSameSite,
     path: "/",
-    maxAge: config.csrf.maxAgeSec,
   });
 }
 
-/**
- * Clears the CSRF cookie by setting it to an empty value with maxAge=0.
- */
-export function clearCSRFCookie(config: Required<SpectraAuthConfig>): string {
-  return serialize(config.csrf.cookieName, "", {
-    httpOnly: config.csrf.cookieHttpOnly,
-    secure: config.csrf.cookieSecure,
-    sameSite: config.csrf.cookieSameSite,
-    path: "/",
+export function clearCsrfCookie({
+  config,
+}: { config: Required<SpectraAuthConfig> }): string {
+  return serializeCookie(config.csrf.cookieName, "", {
     maxAge: 0,
+    secure: config.csrf.cookieSecure,
+    httpOnly: config.csrf.cookieHttpOnly,
+    sameSite: config.csrf.cookieSameSite,
   });
 }
 
-/**
- * Extracts the CSRF token from the Cookie header string.
- *
- * @param cookieHeader - The raw "Cookie" header from the request.
- * @param config       - Needed to read config.csrf.cookieName
- * @returns The raw token string if found, undefined otherwise.
- */
-export function getCSRFTokenFromHeaders(
-  cookieHeader: string | undefined,
-  config: Required<SpectraAuthConfig>,
-): string | undefined {
-  if (!cookieHeader) return undefined;
-  const cookies = parse(cookieHeader);
-  return cookies[config.csrf.cookieName];
+export function getCsrfToken({
+  cookieHeader,
+  config,
+}: { cookieHeader: string; config: Required<SpectraAuthConfig> }):
+  | string
+  | undefined {
+  const csrfToken = parseCookie(cookieHeader)[config.csrf.cookieName];
+  return csrfToken;
 }

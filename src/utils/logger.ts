@@ -1,11 +1,7 @@
-import { LogLevel, type LoggerInterface } from "../types";
+import { LogLevel } from "../types";
 
-/**
- * A simple console logger implementation.
- * Outputs logs to the console, prefixed with the log level.
- */
-export class ConsoleLogger implements LoggerInterface {
-  private logLevel = LogLevel.Info; // Default log level
+export class ConsoleLogger {
+  private logLevel = LogLevel.Info;
 
   constructor(level?: LogLevel) {
     if (level) {
@@ -88,14 +84,4 @@ export class ConsoleLogger implements LoggerInterface {
         break;
     }
   }
-}
-
-/**
- * Creates a logger instance. (Currently always ConsoleLogger, could be extended)
- *
- * @param level - Optional log level to set for the logger.
- * @returns A LoggerInterface instance.
- */
-export function createLogger(level?: LogLevel): LoggerInterface {
-  return new ConsoleLogger(level);
 }

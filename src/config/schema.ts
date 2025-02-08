@@ -1,129 +1,151 @@
 import { z } from "zod";
+import { ConsoleLogger, createTime } from "../utils";
 
-/**
- * Zod schema for validating the SpectraAuth configuration object.
- * This schema defines the expected structure and types of the configuration
- * that can be passed to `initSpectraAuth()`.
- */
 export const configSchema = z.object({
-  logger: z.object({}).optional(), //  Custom logger instance (if provided) - details are handled by LoggerInterface type
-  securityEventLogger: z.object({}).optional(), // Custom security event logger - same as above
-
-  session: z
+  logger: z
     .object({
-      cookieName: z.string().default("spectra.sessionToken"),
-      maxAgeSec: z
-        .number()
-        .int()
-        .positive()
-        .default(30 * 24 * 60 * 60), // Seconds
-      tokenLengthBytes: z.number().int().positive().default(32),
-      tokenPrefixLengthBytes: z.number().int().positive().default(8),
-      tokenSecret: z.string().min(16), // Ensure token secret is at least 16 chars long
-      csrfSecret: z.string().min(16), // Ensure CSRF secret is also strong
-      cookieSecure: z.boolean().default(process.env.NODE_ENV === "production"),
-      cookieSameSite: z.enum(["Strict", "Lax", "None"]).default("Lax"),
-      cookieHttpOnly: z.boolean().default(true),
-      maxSessionsPerUser: z.number().int().positive().optional(), // Optional limit on concurrent sessions
-      rollingIntervalSec: z.number().int().nonnegative().default(0), // Rolling interval in seconds (0 to disable)
+      debug: z
+        .function()
+        .args(z.string(), z.record(z.string(), z.unknown()).optional())
+        .returns(z.void()),
+      info: z
+        .function()
+        .args(z.string(), z.record(z.string(), z.unknown()).optional())
+        .returns(z.void()),
+      warn: z
+        .function()
+        .args(z.string(), z.record(z.string(), z.unknown()).optional())
+        .returns(z.void()),
+      error: z
+        .function()
+        .args(z.string(), z.record(z.string(), z.unknown()).optional())
+        .returns(z.void()),
+      securityEvent: z
+        .function()
+        .args(z.string(), z.record(z.string(), z.unknown()).optional())
+        .returns(z.void()),
     })
-    .required(),
+    .default(new ConsoleLogger()),
 
-  rateLimit: z
-    .object({
-      disable: z.boolean().default(false),
-      kvRestApiUrl: z.string().optional(), // Required if rate limiting is enabled
-      kvRestApiToken: z.string().optional(), // Required if rate limiting is enabled
-      loginRoute: z
-        .object({
-          enabled: z.boolean().default(true),
-          attempts: z.number().int().positive().default(5),
-          windowSeconds: z
-            .number()
-            .int()
-            .positive()
-            .default(60 * 5),
-        })
-        .required(),
-      registerRoute: z
-        .object({
-          enabled: z.boolean().default(true),
-          attempts: z.number().int().positive().default(3),
-          windowSeconds: z
-            .number()
-            .int()
-            .positive()
-            .default(60 * 10),
-        })
-        .required(),
-      passwordResetRoute: z
-        .object({
-          enabled: z.boolean().default(true),
-          attempts: z.number().int().positive().default(3),
-          windowSeconds: z
-            .number()
-            .int()
-            .positive()
-            .default(60 * 15),
-        })
-        .required(),
-      // Add more routes as needed following the pattern above
-    })
-    .required(),
-
-  accountLock: z
-    .object({
-      enabled: z.boolean().default(true),
-      threshold: z.number().int().positive().default(5),
-      durationMs: z
-        .number()
-        .int()
-        .positive()
-        .default(60 * 60 * 1000), // Milliseconds
-    })
-    .required(),
-  passwordHashOptions: z.object({
-    time: z.number().int().positive().default(2),
-    mem: z.number().int().positive().default(65536),
-    parallelism: z.number().int().positive().default(2),
-    hashLen: z.number().int().positive().default(32),
+  // Auth Session
+  session: z.object({
+    cookieName: z.string().default("spectra.sessionToken"),
+    maxAgeSeconds: z
+      .number()
+      .int()
+      .positive()
+      .default(createTime(7, "d").toSeconds()),
+    tokenLengthBytes: z.number().int().positive().default(64),
+    tokenPrefixLengthBytes: z.number().int().positive().default(16),
+    tokenSecret: z
+      .string()
+      .default(process.env.SESSION_TOKEN_SECRET || "change-me"),
+    cookieSecure: z.boolean().default(process.env.NODE_ENV === "production"),
+    cookieSameSite: z.enum(["strict", "lax", "none"]).default("lax"),
+    cookieHttpOnly: z.boolean().default(true),
+    maxSessionsPerUser: z.number().int().positive().default(5),
+    rollingIntervalSeconds: z
+      .number()
+      .int()
+      .nonnegative()
+      .default(createTime(1, "h").toSeconds()),
   }),
-  passwordPepper: z
-    .string()
-    .min(16)
-    .default("default-insecure-password-pepper"), // Ensure pepper is strong, provide default
 
-  csrf: z
-    .object({
+  // CSRF Protection
+  csrf: z.object({
+    enabled: z.boolean().default(true),
+    cookieName: z.string().default("spectra.csrfToken"),
+    maxAgeSeconds: z
+      .number()
+      .int()
+      .positive()
+      .default(createTime(2, "h").toSeconds()),
+    tokenLengthBytes: z.number().int().positive().default(32),
+    tokenSecret: z.string().default(process.env.CSRF_SECRET || "change-me"),
+    cookieSecure: z.boolean().default(process.env.NODE_ENV === "production"),
+    cookieSameSite: z.enum(["strict", "lax", "none"]).default("lax"),
+    cookieHttpOnly: z.boolean().default(true),
+  }),
+
+  // Verification
+  verification: z.object({
+    tokenLengthBytes: z.number().int().positive().default(32),
+    tokenExpirySeconds: z
+      .number()
+      .int()
+      .positive()
+      .default(createTime(1, "h").toSeconds()),
+  }),
+
+  // Auth Rate Limiting
+  rateLimiting: z.object({
+    enabled: z.boolean().default(true),
+    kvRestApiUrl: z.string().optional(),
+    kvRestApiToken: z.string().optional(),
+    // Per route rate limits
+    login: z.object({
       enabled: z.boolean().default(true),
-      cookieName: z.string().default("spectra.csrfToken"),
-      headerName: z.string().default("X-CSRF-Token"),
-      formFieldName: z.string().default("_csrf"),
-      tokenLengthBytes: z.number().int().positive().default(32),
-      cookieSecure: z.boolean().default(process.env.NODE_ENV === "production"),
-      cookieHttpOnly: z.boolean().default(true),
-      cookieSameSite: z.enum(["strict", "lax", "none"]).default("strict"), // Strict for CSRF
-      maxAgeSec: z
+      maxRequests: z.number().int().positive().default(5),
+      windowSeconds: z
         .number()
         .int()
         .positive()
-        .default(2 * 60 * 60), // CSRF token max age - shorter than session
-    })
-    .required(),
+        .default(createTime(10, "m").toSeconds()),
+    }),
+    register: z.object({
+      enabled: z.boolean().default(true),
+      maxRequests: z.number().int().positive().default(3),
+      windowSeconds: z
+        .number()
+        .int()
+        .positive()
+        .default(createTime(10, "m").toSeconds()),
+    }),
+    verifyEmail: z.object({
+      enabled: z.boolean().default(true),
+      maxRequests: z.number().int().positive().default(3),
+      windowSeconds: z
+        .number()
+        .int()
+        .positive()
+        .default(createTime(15, "m").toSeconds()),
+    }),
+    forgotPassword: z.object({
+      enabled: z.boolean().default(true),
+      maxRequests: z.number().int().positive().default(3),
+      windowSeconds: z
+        .number()
+        .int()
+        .positive()
+        .default(createTime(15, "m").toSeconds()),
+    }),
+    passwordReset: z.object({
+      enabled: z.boolean().default(true),
+      maxRequests: z.number().int().positive().default(3),
+      windowSeconds: z
+        .number()
+        .int()
+        .positive()
+        .default(createTime(15, "m").toSeconds()),
+    }),
+  }),
+
+  // Account Security
+  accountSecurity: z.object({
+    requireEmailVerification: z.boolean().default(true),
+    maxFailedLogins: z.number().int().nonnegative().default(5),
+    lockoutDurationSeconds: z
+      .number()
+      .int()
+      .positive()
+      .default(createTime(15, "m").toSeconds()),
+    passwordHashing: z.object({
+      costFactor: z.number().int().positive().default(16384),
+      blockSize: z.number().int().positive().default(16),
+      parallelization: z.number().int().positive().default(1),
+      derivedKeyLength: z.number().int().positive().default(64),
+    }),
+  }),
 });
 
-/**
- * Type representing the validated configuration, inferred from the schema.
- */
-export type ValidatedSpectraAuthConfig = z.infer<typeof configSchema>;
-
-/**
- * Validates the provided configuration object against the schema.
- *
- * @param config - The configuration object to validate.
- * @throws Error if the configuration is invalid, with details from Zod.
- * @returns The validated configuration object if it is valid.
- */
-export function validateConfig(config: unknown): ValidatedSpectraAuthConfig {
-  return configSchema.parse(config); // parse() will throw a ZodError if validation fails
-}
+export type SpectraAuthConfig = z.infer<typeof configSchema>;

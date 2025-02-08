@@ -1,5 +1,5 @@
 import { type PrismaClient, VerificationType } from "@prisma/client";
-import type { SpectraAuthConfig } from "../config";
+import type { AegisAuthConfig } from "../config";
 import { sendVerificationEmail } from "../emails";
 import { hashPassword } from "../security";
 import {
@@ -26,7 +26,7 @@ export async function registerUser({
     ipAddress?: string;
   };
   prisma: PrismaClient;
-  config: Required<SpectraAuthConfig>;
+  config: Required<AegisAuthConfig>;
 }): Promise<ActionResponse<{ user: ClientUser }>> {
   const { input, ipAddress } = options;
 

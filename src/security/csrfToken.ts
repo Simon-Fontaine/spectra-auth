@@ -1,4 +1,4 @@
-import type { SpectraAuthConfig } from "../config";
+import type { AegisAuthConfig } from "../config";
 import { base64Url } from "./base64";
 import { createHMAC } from "./hmac";
 import { randomBytes } from "./random";
@@ -6,7 +6,7 @@ import { randomBytes } from "./random";
 export async function generateCsrfToken({
   config,
 }: {
-  config: SpectraAuthConfig;
+  config: AegisAuthConfig;
 }) {
   const csrfToken = base64Url.encode(randomBytes(config.csrf.tokenLengthBytes));
 
@@ -28,7 +28,7 @@ export async function verifyCsrfToken({
 }: {
   token: string;
   hash: string;
-  config: SpectraAuthConfig;
+  config: AegisAuthConfig;
 }) {
   return await createHMAC("SHA-256", "base64urlnopad").verify(
     config.csrf.tokenSecret,

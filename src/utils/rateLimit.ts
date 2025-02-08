@@ -1,6 +1,6 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
-import type { SpectraAuthConfig } from "../config";
+import type { AegisAuthConfig } from "../config";
 
 export function createRouteLimiter({
   routeKey,
@@ -12,7 +12,7 @@ export function createRouteLimiter({
     | "verifyEmail"
     | "forgotPassword"
     | "passwordReset";
-  config: Required<SpectraAuthConfig>;
+  config: Required<AegisAuthConfig>;
 }): Ratelimit {
   const rateLimitConfig = config.rateLimiting[routeKey];
 
@@ -25,7 +25,7 @@ export function createRouteLimiter({
       rateLimitConfig.maxRequests,
       `${rateLimitConfig.windowSeconds} s`,
     ),
-    prefix: `spectra-route:${routeKey}:`,
+    prefix: `aegis-route:${routeKey}:`,
   });
 }
 

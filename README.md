@@ -1,6 +1,6 @@
-# Spectra Auth
+# Aegis Auth
 
-Spectra Auth is a robust authentication solution for Next.js and Node.js applications. It offers secure, credentials-based authentication with built-in session management, rate limiting, account lockouts, password resets, email verification, and CSRF protection.
+Aegis Auth is a robust authentication solution for Next.js and Node.js applications. It offers secure, credentials-based authentication with built-in session management, rate limiting, account lockouts, password resets, email verification, and CSRF protection.
 
 ## Features
 
@@ -18,9 +18,9 @@ Spectra Auth is a robust authentication solution for Next.js and Node.js applica
 Install via npm or yarn:
 
 ```bash
-npm install spectra-auth
+npm install aegis-auth
 # or
-yarn add spectra-auth
+yarn add aegis-auth
 ```
 
 ## Requirements
@@ -48,16 +48,16 @@ Make sure your Prisma schema is configured (see [prisma/schema.prisma](./prisma/
 npx prisma migrate dev
 ```
 
-### Instantiating Spectra Auth
+### Instantiating Aegis Auth
 
-Create an instance of `SpectraAuth` in your application by passing in your Prisma client and (optionally) overriding default settings:
+Create an instance of `AegisAuth` in your application by passing in your Prisma client and (optionally) overriding default settings:
 
 ```typescript
 import { PrismaClient } from "@prisma/client";
-import { SpectraAuth } from "spectra-auth";
+import { AegisAuth } from "aegis-auth";
 
 const prisma = new PrismaClient();
-const auth = new SpectraAuth(prisma, {
+const auth = new AegisAuth(prisma, {
   // Optional: Override default configuration settings here.
 });
 ```
@@ -121,7 +121,7 @@ if (logoutResult.success) {
 
 ### Password Reset & Email Verification
 
-Spectra Auth provides dedicated methods for initiating and completing password resets as well as verifying email addresses. For example:
+Aegis Auth provides dedicated methods for initiating and completing password resets as well as verifying email addresses. For example:
 
 - `auth.initiatePasswordReset({...})`
 - `auth.completePasswordReset({...})`
@@ -131,7 +131,7 @@ Refer to the [API documentation](./docs/API.md) for more details.
 
 ## Configuration
 
-The package uses sensible defaults which you can override when instantiating the `SpectraAuth` class. Key configuration areas include:
+The package uses sensible defaults which you can override when instantiating the `AegisAuth` class. Key configuration areas include:
 
 - **Session Settings:** Cookie name, token length, max sessions per user, rolling interval, etc.
 - **CSRF Settings:** Token length, cookie name, and the ability to make the cookie client‑readable.
@@ -143,7 +143,7 @@ For complete configuration options, check out the [configuration schema](./src/c
 
 ## Contributing
 
-Contributions, bug reports, and feature requests are welcome. Please open an issue or submit a pull request on [GitHub](https://github.com/Simon-Fontaine/spectra-auth).
+Contributions, bug reports, and feature requests are welcome. Please open an issue or submit a pull request on [GitHub](https://github.com/Simon-Fontaine/aegis-auth).
 
 ## License
 

@@ -1,5 +1,5 @@
 import { type PrismaClient, VerificationType } from "@prisma/client";
-import type { SpectraAuthConfig } from "../config";
+import type { AegisAuthConfig } from "../config";
 import { sendPasswordResetEmail } from "../emails";
 import { type ActionResponse, ErrorCodes, type PrismaUser } from "../types";
 import { createRouteLimiter, limitIpAttempts } from "../utils";
@@ -17,7 +17,7 @@ export async function initiatePasswordReset({
     ipAddress?: string;
   };
   prisma: PrismaClient;
-  config: Required<SpectraAuthConfig>;
+  config: Required<AegisAuthConfig>;
 }): Promise<ActionResponse> {
   const { input, ipAddress } = options;
 

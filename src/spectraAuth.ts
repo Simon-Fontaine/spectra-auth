@@ -13,14 +13,14 @@ import {
   validateSession as validateSessionCore,
   verifyEmail as verifyEmailCore,
 } from "./actions";
-import { type SpectraAuthConfig, configSchema, defaultConfig } from "./config";
+import { type AegisAuthConfig, configSchema, defaultConfig } from "./config";
 import { ConfigurationError } from "./errors/config";
 
-export class SpectraAuth {
+export class AegisAuth {
   private prisma: PrismaClient;
-  private config: Required<SpectraAuthConfig>;
+  private config: Required<AegisAuthConfig>;
 
-  constructor(prisma: PrismaClient, userConfig?: SpectraAuthConfig) {
+  constructor(prisma: PrismaClient, userConfig?: AegisAuthConfig) {
     this.prisma = prisma;
     const mergedConfig = _.defaultsDeep(userConfig, defaultConfig);
     try {
@@ -28,7 +28,7 @@ export class SpectraAuth {
     } catch (error) {
       throw new ConfigurationError((error as Error).message ?? undefined);
     }
-    this.config = mergedConfig as Required<SpectraAuthConfig>;
+    this.config = mergedConfig as Required<AegisAuthConfig>;
   }
 
   async completePasswordReset(

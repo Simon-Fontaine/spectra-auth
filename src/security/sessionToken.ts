@@ -1,11 +1,11 @@
-import type { SpectraAuthConfig } from "../config";
+import type { AegisAuthConfig } from "../config";
 import { base64Url } from "./base64";
 import { createHMAC } from "./hmac";
 import { randomBytes } from "./random";
 
 export async function generateSessionToken({
   config,
-}: { config: SpectraAuthConfig }) {
+}: { config: AegisAuthConfig }) {
   const sessionToken = base64Url.encode(
     randomBytes(config.session.tokenLengthBytes),
   );
@@ -32,7 +32,7 @@ export async function verifySessionToken({
 }: {
   token: string;
   hash: string;
-  config: SpectraAuthConfig;
+  config: AegisAuthConfig;
 }) {
   return await createHMAC("SHA-256", "base64urlnopad").verify(
     config.session.tokenSecret,
@@ -54,7 +54,7 @@ export async function getSessionTokenHash({
   config,
 }: {
   token: string;
-  config: SpectraAuthConfig;
+  config: AegisAuthConfig;
 }) {
   return await createHMAC("SHA-256", "base64urlnopad").sign(
     config.session.tokenSecret,
@@ -67,7 +67,7 @@ export async function splitSessionToken({
   config,
 }: {
   token: string;
-  config: SpectraAuthConfig;
+  config: AegisAuthConfig;
 }) {
   return {
     tokenPrefix: getSessionTokenPrefix({ token }),

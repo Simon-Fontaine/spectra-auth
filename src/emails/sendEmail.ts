@@ -1,12 +1,12 @@
 import { Resend } from "resend";
-import type { SpectraAuthConfig } from "../config";
+import type { AegisAuthConfig } from "../config";
 
 export interface ResendEmailOptions {
   from: string;
   to: string;
   subject: string;
   react: React.ReactNode;
-  config: Required<SpectraAuthConfig>;
+  config: Required<AegisAuthConfig>;
 }
 
 export async function sendEmailWithResend(options: ResendEmailOptions) {

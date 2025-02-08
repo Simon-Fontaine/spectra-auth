@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
-import type { SpectraAuthConfig } from "../config";
+import type { AegisAuthConfig } from "../config";
 import { splitSessionToken, verifySessionToken } from "../security";
 import {
   type ActionResponse,
@@ -21,7 +21,7 @@ export async function validateSession({
     };
   };
   prisma: PrismaClient;
-  config: Required<SpectraAuthConfig>;
+  config: Required<AegisAuthConfig>;
 }): Promise<ActionResponse<{ session?: ClientSession; rolled: boolean }>> {
   const { sessionToken } = options.input;
   const sessionTokens = await splitSessionToken({

@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
-import type { SpectraAuthConfig } from "../config";
+import type { AegisAuthConfig } from "../config";
 import {
   type ActionResponse,
   ErrorCodes,
@@ -19,7 +19,7 @@ export async function useVerificationToken({
     };
   };
   prisma: PrismaClient;
-  config: Required<SpectraAuthConfig>;
+  config: Required<AegisAuthConfig>;
 }): Promise<ActionResponse<{ verification: PrismaVerification }>> {
   const { input } = options;
 

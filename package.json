@@ -1,5 +1,5 @@
 {
-  "name": "spectra-auth",
+  "name": "hestia-auth",
   "version": "1.0.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -49,10 +49,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Simon-Fontaine/spectra-auth.git"
+    "url": "git+https://github.com/Simon-Fontaine/hestia-auth.git"
   },
   "bugs": {
-    "url": "https://github.com/Simon-Fontaine/spectra-auth/issues"
+    "url": "https://github.com/Simon-Fontaine/hestia-auth/issues"
   },
-  "homepage": "https://github.com/Simon-Fontaine/spectra-auth#readme"
+  "homepage": "https://github.com/Simon-Fontaine/hestia-auth#readme"
 }

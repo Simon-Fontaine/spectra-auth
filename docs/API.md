@@ -1,6 +1,6 @@
-# Spectra Auth API Documentation
+# Aegis Auth API Documentation
 
-Spectra Auth provides a robust set of functions to handle user authentication and related security flows such as registration, login, session management, password resets, and email verification. This document describes the available methods, their parameters, and expected responses.
+Aegis Auth provides a robust set of functions to handle user authentication and related security flows such as registration, login, session management, password resets, and email verification. This document describes the available methods, their parameters, and expected responses.
 
 ## Table of Contents
 
@@ -24,14 +24,14 @@ Spectra Auth provides a robust set of functions to handle user authentication an
 
 ## Initialization
 
-Before using any of the API methods, instantiate the `SpectraAuth` class with your Prisma client and an optional configuration object:
+Before using any of the API methods, instantiate the `AegisAuth` class with your Prisma client and an optional configuration object:
 
 ```typescript
 import { PrismaClient } from "@prisma/client";
-import { SpectraAuth } from "spectra-auth";
+import { AegisAuth } from "aegis-auth";
 
 const prisma = new PrismaClient();
-const auth = new SpectraAuth(prisma, {
+const auth = new AegisAuth(prisma, {
   // Override defaults if needed
 });
 ```
@@ -454,7 +454,7 @@ interface ActionResponse<T = unknown> {
 - **Security Considerations:**  
   Ensure all secrets and configurations are managed securely via environment variables, and verify that rate limiting and session policies are properly enforced in production.
 
-For further details or clarifications, please refer to the source code or open an issue on our [GitHub repository](https://github.com/Simon-Fontaine/spectra-auth).
+For further details or clarifications, please refer to the source code or open an issue on our [GitHub repository](https://github.com/Simon-Fontaine/aegis-auth).
 
 ---
 

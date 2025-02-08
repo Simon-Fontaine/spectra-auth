@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
-import type { SpectraAuthConfig } from "../config";
+import type { AegisAuthConfig } from "../config";
 import type { ActionResponse } from "../types";
 import { revokeSession } from "./revokeSession";
 
@@ -10,7 +10,7 @@ export async function logoutUser({
 }: {
   sessionToken: string;
   prisma: PrismaClient;
-  config: Required<SpectraAuthConfig>;
+  config: Required<AegisAuthConfig>;
 }): Promise<ActionResponse> {
   const result = await revokeSession({
     options: { input: { sessionToken } },

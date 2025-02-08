@@ -29,7 +29,7 @@ export const configSchema = z.object({
 
   // Auth Session
   session: z.object({
-    cookieName: z.string().default("spectra.sessionToken"),
+    cookieName: z.string().default("aegis.sessionToken"),
     maxAgeSeconds: z
       .number()
       .int()
@@ -54,7 +54,7 @@ export const configSchema = z.object({
   // CSRF Protection
   csrf: z.object({
     enabled: z.boolean().default(true),
-    cookieName: z.string().default("spectra.csrfToken"),
+    cookieName: z.string().default("aegis.csrfToken"),
     maxAgeSeconds: z
       .number()
       .int()
@@ -170,4 +170,4 @@ export const configSchema = z.object({
     .optional(),
 });
 
-export type SpectraAuthConfig = z.infer<typeof configSchema>;
+export type AegisAuthConfig = z.infer<typeof configSchema>;

@@ -1,10 +1,10 @@
 import { parse as parseCookie, serialize as serializeCookie } from "cookie";
-import type { SpectraAuthConfig } from "../config";
+import type { AegisAuthConfig } from "../config";
 
 export function createCsrfCookie({
   csrfToken,
   config,
-}: { csrfToken: string; config: Required<SpectraAuthConfig> }): string {
+}: { csrfToken: string; config: Required<AegisAuthConfig> }): string {
   return serializeCookie(config.csrf.cookieName, csrfToken, {
     maxAge: config.csrf.maxAgeSeconds,
     secure: config.csrf.cookieSecure,
@@ -16,7 +16,7 @@ export function createCsrfCookie({
 
 export function clearCsrfCookie({
   config,
-}: { config: Required<SpectraAuthConfig> }): string {
+}: { config: Required<AegisAuthConfig> }): string {
   return serializeCookie(config.csrf.cookieName, "", {
     maxAge: 0,
     secure: config.csrf.cookieSecure,
@@ -28,7 +28,7 @@ export function clearCsrfCookie({
 export function getCsrfToken({
   cookieHeader,
   config,
-}: { cookieHeader: string; config: Required<SpectraAuthConfig> }):
+}: { cookieHeader: string; config: Required<AegisAuthConfig> }):
   | string
   | undefined {
   const csrfToken = parseCookie(cookieHeader)[config.csrf.cookieName];

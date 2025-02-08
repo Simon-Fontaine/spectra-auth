@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
-import type { SpectraAuthConfig } from "../config";
+import type { AegisAuthConfig } from "../config";
 import { generateCsrfToken, generateSessionToken } from "../security";
 import { type ActionResponse, type ClientSession, ErrorCodes } from "../types";
 import { clientSafeSession, createTime } from "../utils";
@@ -20,7 +20,7 @@ export async function createSession({
     userAgent?: string;
   };
   prisma: PrismaClient;
-  config: Required<SpectraAuthConfig>;
+  config: Required<AegisAuthConfig>;
 }): Promise<ActionResponse<{ session: ClientSession }>> {
   const activeSessions = await prisma.session.count({
     where: {

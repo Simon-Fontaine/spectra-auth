@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
-import type { SpectraAuthConfig } from "../config";
+import type { AegisAuthConfig } from "../config";
 import { getSessionTokenPrefix } from "../security";
 import type { ActionResponse, PrismaSession } from "../types";
 
@@ -14,7 +14,7 @@ export async function revokeSession({
     };
   };
   prisma: PrismaClient;
-  config: Required<SpectraAuthConfig>;
+  config: Required<AegisAuthConfig>;
 }): Promise<ActionResponse> {
   const { sessionToken } = options.input;
   const sessionPrefix = getSessionTokenPrefix({ token: sessionToken });

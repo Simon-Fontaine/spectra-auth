@@ -1,10 +1,10 @@
 import { parse as parseCookie, serialize as serializeCookie } from "cookie";
-import type { SpectraAuthConfig } from "../config";
+import type { AegisAuthConfig } from "../config";
 
 export function createSessionCookie({
   sessionToken,
   config,
-}: { sessionToken: string; config: Required<SpectraAuthConfig> }): string {
+}: { sessionToken: string; config: Required<AegisAuthConfig> }): string {
   return serializeCookie(config.session.cookieName, sessionToken, {
     maxAge: config.session.maxAgeSeconds,
     secure: config.session.cookieSecure,
@@ -16,7 +16,7 @@ export function createSessionCookie({
 
 export function clearSessionCookie({
   config,
-}: { config: Required<SpectraAuthConfig> }): string {
+}: { config: Required<AegisAuthConfig> }): string {
   return serializeCookie(config.session.cookieName, "", {
     maxAge: 0,
     secure: config.session.cookieSecure,
@@ -28,7 +28,7 @@ export function clearSessionCookie({
 export function getSessionToken({
   cookieHeader,
   config,
-}: { cookieHeader: string; config: Required<SpectraAuthConfig> }):
+}: { cookieHeader: string; config: Required<AegisAuthConfig> }):
   | string
   | undefined {
   const sessionToken = parseCookie(cookieHeader)[config.session.cookieName];

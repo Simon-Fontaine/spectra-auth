@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
-import type { SpectraAuthConfig } from "../config";
+import type { AegisAuthConfig } from "../config";
 import { createVerificationToken } from "../security";
 import type {
   ActionResponse,
@@ -19,7 +19,7 @@ export async function createVerification({
     tokenExpirySeconds?: number;
   };
   prisma: PrismaClient;
-  config: Required<SpectraAuthConfig>;
+  config: Required<AegisAuthConfig>;
 }): Promise<ActionResponse<{ verification: PrismaVerification }>> {
   const verificationToken = await createVerificationToken({ config });
   const expiresAt = createTime(

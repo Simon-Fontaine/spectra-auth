@@ -1,15 +1,15 @@
 # Security Policy
 
-Spectra Auth is committed to ensuring the security of your application and protecting sensitive user data. This document outlines our security practices and guidelines for reporting vulnerabilities.
+Aegis Auth is committed to ensuring the security of your application and protecting sensitive user data. This document outlines our security practices and guidelines for reporting vulnerabilities.
 
 ## Reporting Vulnerabilities
 
-If you discover a security vulnerability in Spectra Auth, please report it immediately. We take all security reports seriously and will work to address any issues as quickly as possible.
+If you discover a security vulnerability in Aegis Auth, please report it immediately. We take all security reports seriously and will work to address any issues as quickly as possible.
 
 **How to Report:**
 
 - **Email:** [github@simonfontaine.com](mailto:github@simonfontaine.com)
-- **GitHub Issues:** [https://github.com/Simon-Fontaine/spectra-auth/issues](https://github.com/Simon-Fontaine/spectra-auth/issues)
+- **GitHub Issues:** [https://github.com/Simon-Fontaine/aegis-auth/issues](https://github.com/Simon-Fontaine/aegis-auth/issues)
 
 When reporting a vulnerability, please include:
 
@@ -37,7 +37,7 @@ When reporting a vulnerability, please include:
   - Always ensure the token secrets are kept confidential and rotated regularly.
 
 - **Password Hashing:**  
-  Spectra Auth uses the scrypt algorithm with configurable parameters for password hashing. Adjust the cost factor, block size, and other parameters to balance security with performance based on your deployment environment.
+  Aegis Auth uses the scrypt algorithm with configurable parameters for password hashing. Adjust the cost factor, block size, and other parameters to balance security with performance based on your deployment environment.
 
 ## Rate Limiting
 
@@ -63,6 +63,6 @@ Upon receiving a report of a vulnerability, we will:
 2. Investigate the issue and work on a fix.
 3. Notify you (and, if necessary, the public) once the vulnerability has been resolved.
 
-Your cooperation in responsibly reporting security issues helps us keep Spectra Auth secure for everyone.
+Your cooperation in responsibly reporting security issues helps us keep Aegis Auth secure for everyone.
 
 Thank you for your vigilance and for helping us maintain the highest security standards.

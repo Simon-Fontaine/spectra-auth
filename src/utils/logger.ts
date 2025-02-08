@@ -67,7 +67,7 @@ export class ConsoleLogger {
     message: string,
     context?: Record<string, unknown>,
   ): void {
-    let logMessage = `[SpectraAuth - ${level.toUpperCase()}] ${message}`;
+    let logMessage = `[AegisAuth - ${level.toUpperCase()}] ${message}`;
     if (context) {
       logMessage += ` - Context: ${JSON.stringify(context)}`;
     }

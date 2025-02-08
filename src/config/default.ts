@@ -1,12 +1,12 @@
 import { ConsoleLogger, createTime } from "../utils";
-import type { SpectraAuthConfig } from "./schema";
+import type { AegisAuthConfig } from "./schema";
 
 export const defaultConfig = {
   logger: new ConsoleLogger(),
 
   // Auth Session
   session: {
-    cookieName: "spectra.sessionToken",
+    cookieName: "aegis.sessionToken",
     maxAgeSeconds: createTime(7, "d").toSeconds(),
     tokenLengthBytes: 64, // 64 bytes = 512 bits
     tokenPrefixLengthBytes: 16, // 16 bytes = 128 bits
@@ -21,7 +21,7 @@ export const defaultConfig = {
   // CSRF Protection
   csrf: {
     enabled: true,
-    cookieName: "spectra.csrfToken",
+    cookieName: "aegis.csrfToken",
     maxAgeSeconds: createTime(2, "h").toSeconds(),
     tokenLengthBytes: 32, // 32 bytes = 256 bits
     tokenSecret: process.env.CSRF_SECRET || "change-me",
@@ -95,4 +95,4 @@ export const defaultConfig = {
       // },
     },
   },
-} as SpectraAuthConfig;
+} as AegisAuthConfig;

@@ -1,5 +1,5 @@
 import { type PrismaClient, VerificationType } from "@prisma/client";
-import type { SpectraAuthConfig } from "../config";
+import type { AegisAuthConfig } from "../config";
 import { type ActionResponse, ErrorCodes } from "../types";
 import { createRouteLimiter, limitIpAttempts } from "../utils";
 import { useVerificationToken } from "./useVerificationToken";
@@ -16,7 +16,7 @@ export async function verifyEmail({
     ipAddress?: string;
   };
   prisma: PrismaClient;
-  config: Required<SpectraAuthConfig>;
+  config: Required<AegisAuthConfig>;
 }): Promise<ActionResponse> {
   const { input, ipAddress } = options;
 

@@ -1,4 +1,4 @@
-import type { SpectraAuthConfig } from "../config";
+import type { AegisAuthConfig } from "../config";
 import { sendEmailWithResend } from "./sendEmail";
 
 export async function sendVerificationEmail({
@@ -8,7 +8,7 @@ export async function sendVerificationEmail({
 }: {
   toEmail: string;
   token: string;
-  config: Required<SpectraAuthConfig>;
+  config: Required<AegisAuthConfig>;
 }) {
   const { email } = config;
   let emailContent: React.ReactNode;

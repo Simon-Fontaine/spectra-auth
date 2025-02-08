@@ -1,4 +1,4 @@
-import type { SpectraAuthConfig } from "../config";
+import type { AegisAuthConfig } from "../config";
 import { sendEmailWithResend } from "./sendEmail";
 
 export async function sendPasswordResetEmail({
@@ -8,7 +8,7 @@ export async function sendPasswordResetEmail({
 }: {
   toEmail: string;
   token: string;
-  config: Required<SpectraAuthConfig>;
+  config: Required<AegisAuthConfig>;
 }) {
   const { email } = config;
   let emailContent: React.ReactNode;

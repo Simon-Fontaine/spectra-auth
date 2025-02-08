@@ -1,10 +1,10 @@
-import type { SpectraAuthConfig } from "../config";
+import type { AegisAuthConfig } from "../config";
 import { hex } from "./hex";
 import { randomBytes } from "./random";
 
 export async function createVerificationToken({
   config,
-}: { config: SpectraAuthConfig }) {
+}: { config: AegisAuthConfig }) {
   const verificationToken = hex.encode(
     randomBytes(config.verification.tokenLengthBytes),
   );

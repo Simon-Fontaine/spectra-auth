@@ -1,6 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 import { UAParser } from "ua-parser-js";
-import type { SpectraAuthConfig } from "../config";
+import type { AegisAuthConfig } from "../config";
 import { verifyPassword } from "../security";
 import {
   type ActionResponse,
@@ -32,7 +32,7 @@ export async function loginUser({
     userAgent?: string;
   };
   prisma: PrismaClient;
-  config: Required<SpectraAuthConfig>;
+  config: Required<AegisAuthConfig>;
 }): Promise<ActionResponse<{ user: ClientUser; session: ClientSession }>> {
   const { input, ipAddress, userAgent } = options;
   const { device, browser, os } = UAParser(userAgent);

@@ -146,6 +146,28 @@ export const configSchema = z.object({
       derivedKeyLength: z.number().int().positive().default(64),
     }),
   }),
+
+  // Email
+  email: z
+    .object({
+      resendApiKey: z.string().optional(),
+      from: z.string().default("no-reply@example.com"),
+      templates: z
+        .object({
+          verification: z
+            .function()
+            .args(z.object({ token: z.string(), toEmail: z.string() }))
+            .returns(z.any())
+            .optional(),
+          passwordReset: z
+            .function()
+            .args(z.object({ token: z.string(), toEmail: z.string() }))
+            .returns(z.any())
+            .optional(),
+        })
+        .optional(),
+    })
+    .optional(),
 });
 
 export type SpectraAuthConfig = z.infer<typeof configSchema>;

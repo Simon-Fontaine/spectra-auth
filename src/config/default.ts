@@ -81,4 +81,18 @@ export const defaultConfig = {
       derivedKeyLength: 64, // key length
     },
   },
+
+  // Email
+  email: {
+    resendApiKey: process.env.RESEND_API_KEY || "",
+    from: process.env.EMAIL_FROM || "no-reply@example.com",
+    templates: {
+      // verification: async ({ token, toEmail }) => {
+      //   return <MyCustomVerificationEmail token={token} toEmail={toEmail} />;
+      // },
+      // passwordReset: async ({ token, toEmail }) => {
+      //   return <MyCustomPasswordResetEmail token={token} toEmail={toEmail} />;
+      // },
+    },
+  },
 } as SpectraAuthConfig;

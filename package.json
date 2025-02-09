@@ -49,10 +49,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Simon-Fontaine/hestia-auth.git"
+    "url": "git+https://github.com/Simon-Fontaine/aegis-auth.git"
   },
   "bugs": {
-    "url": "https://github.com/Simon-Fontaine/hestia-auth/issues"
+    "url": "https://github.com/Simon-Fontaine/aegis-auth/issues"
   },
-  "homepage": "https://github.com/Simon-Fontaine/hestia-auth#readme"
+  "homepage": "https://github.com/Simon-Fontaine/aegis-auth#readme"
 }

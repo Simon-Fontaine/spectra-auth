@@ -10,7 +10,7 @@ import {
 import { createSession } from "./createSession";
 import { revokeSession } from "./revokeSession";
 
-export async function validateSession({
+export async function validateAndRotateSession({
   options,
   prisma,
   config,
@@ -75,14 +75,13 @@ export async function validateSession({
     };
   }
 
-  let rolledSession: ClientSession | null = null;
-  const { rollingIntervalSeconds } = config.session;
-
   const now = new Date();
-  if (
-    rollingIntervalSeconds > 0 &&
-    now.getTime() - session.updatedAt.getTime() > rollingIntervalSeconds * 1000
-  ) {
+  const timeSinceLastUpdate = now.getTime() - session.updatedAt.getTime();
+  const shouldRotate =
+    config.session.rollingIntervalSeconds > 0 &&
+    timeSinceLastUpdate > config.session.rollingIntervalSeconds * 1000;
+
+  if (shouldRotate) {
     const newSession = await createSession({
       options: {
         userId: session.userId,
@@ -106,8 +105,6 @@ export async function validateSession({
         code: ErrorCodes.FAILED_TO_ROLL_SESSION,
       };
     }
-
-    rolledSession = newSession.data.session;
     await revokeSession({
       options: {
         input: {
@@ -117,17 +114,16 @@ export async function validateSession({
       prisma,
       config,
     });
-  }
 
-  if (rolledSession) {
-    config.logger.securityEvent("SESSION_ROLLED", {
-      sessionId: session.id,
+    config.logger.securityEvent("SESSION_ROTATED", {
+      oldSessionId: session.id,
     });
+
     return {
       success: true,
       status: 200,
-      message: "Session validated and rolled",
-      data: { session: rolledSession, rolled: true },
+      message: "Session rotated",
+      data: { session: newSession.data.session, rolled: true },
     };
   }
 

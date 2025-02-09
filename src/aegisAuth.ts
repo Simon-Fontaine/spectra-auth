@@ -8,9 +8,10 @@ import {
   loginUser as loginUserCore,
   logoutUser as logoutUserCore,
   registerUser as registerUserCore,
+  revokeAllSessionsForUser as revokeAllSessionsForUserCore,
   revokeSession as revokeSessionCore,
   useVerificationToken as useVerificationTokenCore,
-  validateSession as validateSessionCore,
+  validateAndRotateSession as validateAndRotateSessionCore,
   verifyEmail as verifyEmailCore,
 } from "./actions";
 import { type AegisAuthConfig, configSchema, defaultConfig } from "./config";
@@ -97,6 +98,16 @@ export class AegisAuth {
     });
   }
 
+  async revokeAllSessionsForUser(
+    options: Parameters<typeof revokeAllSessionsForUserCore>[0]["options"],
+  ) {
+    return revokeAllSessionsForUserCore({
+      options,
+      prisma: this.prisma,
+      config: this.config,
+    });
+  }
+
   async revokeSession(
     options: Parameters<typeof revokeSessionCore>[0]["options"],
   ) {
@@ -117,10 +128,10 @@ export class AegisAuth {
     });
   }
 
-  async validateSession(
-    options: Parameters<typeof validateSessionCore>[0]["options"],
+  async validateAndRotateSession(
+    options: Parameters<typeof validateAndRotateSessionCore>[0]["options"],
   ) {
-    return validateSessionCore({
+    return validateAndRotateSessionCore({
       options,
       prisma: this.prisma,
       config: this.config,

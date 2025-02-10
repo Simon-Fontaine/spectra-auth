@@ -58,5 +58,5 @@ export const validateAndRotateSessionSchema = z.object({
 });
 
 export const verifyEmailSchema = z.object({
-  token: getEmailSchema(),
+  token: z.string().min(1),
 });

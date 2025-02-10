@@ -19,7 +19,7 @@ export function clientSafeSession({
   sessionToken: string;
   csrfToken: string;
 }): ClientSession {
-  const { csrfTokenHash, tokenHash, tokenPrefix, ...safeSession } = session;
+  const { csrfTokenHash, tokenHash, ...safeSession } = session;
   const clientSession = {
     ...safeSession,
     sessionToken,

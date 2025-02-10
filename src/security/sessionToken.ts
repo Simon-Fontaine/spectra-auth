@@ -9,9 +9,6 @@ export async function generateSessionToken({
   const sessionToken = base64Url.encode(
     randomBytes(config.session.tokenLengthBytes),
   );
-  const sessionPrefix = base64Url.encode(
-    randomBytes(config.session.tokenPrefixLengthBytes),
-  );
 
   const sessionTokenHash = await createHMAC("SHA-256", "base64urlnopad").sign(
     config.session.tokenSecret,
@@ -19,58 +16,36 @@ export async function generateSessionToken({
   );
 
   return {
-    sessionToken: `${sessionPrefix}:${sessionToken}`,
-    sessionPrefix,
+    sessionToken,
     sessionTokenHash,
   };
 }
 
-export async function verifySessionToken({
-  token,
-  hash,
+export async function signSessionToken({
+  sessionToken,
   config,
 }: {
-  token: string;
-  hash: string;
-  config: AegisAuthConfig;
-}) {
-  return await createHMAC("SHA-256", "base64urlnopad").verify(
-    config.session.tokenSecret,
-    token,
-    hash,
-  );
-}
-
-export function getSessionTokenPrefix({
-  token,
-}: {
-  token: string;
-}) {
-  return token.split(":")[0];
-}
-
-export async function getSessionTokenHash({
-  token,
-  config,
-}: {
-  token: string;
+  sessionToken: string;
   config: AegisAuthConfig;
 }) {
   return await createHMAC("SHA-256", "base64urlnopad").sign(
     config.session.tokenSecret,
-    token.split(":")[1],
+    sessionToken,
   );
 }
 
-export async function splitSessionToken({
-  token,
+export async function verifySessionToken({
+  sessionToken,
+  sessionTokenHash,
   config,
 }: {
-  token: string;
+  sessionToken: string;
+  sessionTokenHash: string;
   config: AegisAuthConfig;
 }) {
-  return {
-    tokenPrefix: getSessionTokenPrefix({ token }),
-    tokenHash: await getSessionTokenHash({ token, config }),
-  };
+  return await createHMAC("SHA-256", "base64urlnopad").verify(
+    config.session.tokenSecret,
+    sessionToken,
+    sessionTokenHash,
+  );
 }

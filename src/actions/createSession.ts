@@ -54,7 +54,6 @@ export async function createSession({
     data: {
       csrfTokenHash: csrfTokens.csrfTokenHash,
       tokenHash: sessionTokens.sessionTokenHash,
-      tokenPrefix: sessionTokens.sessionPrefix,
       expiresAt: sessionExpiry,
       ...options,
     },

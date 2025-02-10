@@ -1,6 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 import type { AegisAuthConfig } from "../config";
-import { getSessionTokenPrefix } from "../security";
+import { signSessionToken } from "../security";
 import type { ActionResponse, PrismaSession } from "../types";
 
 export async function revokeSession({
@@ -17,10 +17,10 @@ export async function revokeSession({
   config: Required<AegisAuthConfig>;
 }): Promise<ActionResponse> {
   const { sessionToken } = options.input;
-  const sessionPrefix = getSessionTokenPrefix({ token: sessionToken });
+  const tokenHash = await signSessionToken({ sessionToken, config });
 
   const session = (await prisma.session.findUnique({
-    where: { tokenPrefix: sessionPrefix },
+    where: { tokenHash },
   })) as PrismaSession | null;
 
   if (!session) {

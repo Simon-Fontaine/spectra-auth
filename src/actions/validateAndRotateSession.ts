@@ -1,6 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 import type { AegisAuthConfig } from "../config";
-import { splitSessionToken, verifySessionToken } from "../security";
+import { signSessionToken, verifySessionToken } from "../security";
 import {
   type ActionResponse,
   type ClientSession,
@@ -24,13 +24,10 @@ export async function validateAndRotateSession({
   config: Required<AegisAuthConfig>;
 }): Promise<ActionResponse<{ session?: ClientSession; rolled: boolean }>> {
   const { sessionToken } = options.input;
-  const sessionTokens = await splitSessionToken({
-    token: sessionToken,
-    config,
-  });
+  const tokenHash = await signSessionToken({ sessionToken, config });
 
   const session = (await prisma.session.findUnique({
-    where: { tokenPrefix: sessionTokens.tokenPrefix },
+    where: { tokenHash },
   })) as PrismaSession | null;
 
   if (!session) {
@@ -58,8 +55,8 @@ export async function validateAndRotateSession({
   }
 
   const isValidToken = await verifySessionToken({
-    token: session.tokenHash,
-    hash: sessionTokens.tokenHash,
+    sessionToken,
+    sessionTokenHash: session.tokenHash,
     config,
   });
 

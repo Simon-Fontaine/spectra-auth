@@ -36,7 +36,6 @@ export const configSchema = z.object({
       .positive()
       .default(createTime(7, "d").toSeconds()),
     tokenLengthBytes: z.number().int().positive().default(64),
-    tokenPrefixLengthBytes: z.number().int().positive().default(16),
     tokenSecret: z
       .string()
       .default(process.env.SESSION_TOKEN_SECRET || "change-me"),

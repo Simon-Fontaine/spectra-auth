@@ -9,7 +9,6 @@ export const defaultConfig = {
     cookieName: "aegis.sessionToken",
     maxAgeSeconds: createTime(7, "d").toSeconds(),
     tokenLengthBytes: 64, // 64 bytes = 512 bits
-    tokenPrefixLengthBytes: 16, // 16 bytes = 128 bits
     tokenSecret: process.env.SESSION_TOKEN_SECRET || "change-me",
     cookieSecure: process.env.NODE_ENV === "production",
     cookieSameSite: "lax", // "strict" | "lax" | "none"

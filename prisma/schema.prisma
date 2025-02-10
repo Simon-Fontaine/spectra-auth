@@ -42,7 +42,6 @@ model User {
 model Session {
   id            String   @id @default(uuid())
   userId        String
-  tokenPrefix   String   @unique
   tokenHash     String   @unique
   csrfTokenHash String   @unique
   isRevoked     Boolean  @default(false)
@@ -62,7 +61,6 @@ model Session {
 
   @@index([expiresAt])
   @@index([isRevoked])
-  @@index([tokenPrefix])
   @@map("sessions")
 }
 

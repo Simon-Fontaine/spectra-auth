@@ -23,7 +23,6 @@ export interface ClientUser extends Omit<PrismaUser, "password"> {}
 export interface PrismaSession {
   id: string;
   userId: string;
-  tokenPrefix: string;
   tokenHash: string;
   csrfTokenHash: string;
   isRevoked: boolean;

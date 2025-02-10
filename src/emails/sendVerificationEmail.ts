@@ -1,43 +1,40 @@
 import type { AegisAuthConfig } from "../config";
-import { sendEmailWithResend } from "./sendEmail";
+import { type SendEmailOptions, sendEmail } from "./sendEmail";
 
-export async function sendVerificationEmail({
-  toEmail,
-  token,
-  config,
-}: {
+interface VerificationEmailOptions {
   toEmail: string;
   token: string;
   config: Required<AegisAuthConfig>;
-}) {
-  const { email } = config;
-  let emailContent: React.ReactNode;
+}
 
-  if (email?.templates?.verification) {
-    emailContent = await email.templates.verification({ token, toEmail });
+export async function sendVerificationEmail(options: VerificationEmailOptions) {
+  const { toEmail, token, config } = options;
+  let html: string;
+
+  if (config.email?.templates?.verification) {
+    html = config.email.templates.verification({ token, toEmail });
   } else {
-    emailContent = `
+    html = `
       <html>
         <body>
           <p>Please verify your email address by clicking the link below:</p>
-          <a href="https://yourapp.com/verify-email?token=${token}">Verify Email</a>
+          <a href="${config.email.baseUrl}/verify-email?token=${token}">Verify Email</a>
         </body>
       </html>
     `;
   }
 
-  const subject = "Verify your email";
-  const from = email?.from || "no-reply@example.com";
+  const sendOption: SendEmailOptions = {
+    to: toEmail,
+    subject: "Verify your email",
+    html: html,
+    config: config,
+  };
 
   try {
-    const result = await sendEmailWithResend({
-      from,
-      to: toEmail,
-      subject,
-      react: emailContent,
-      config,
-    });
+    const result = await sendEmail(sendOption);
     config.logger.info("Verification email sent", { toEmail, result });
+    return result;
   } catch (error) {
     config.logger.error("Failed to send verification email", {
       toEmail,

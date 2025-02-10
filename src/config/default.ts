@@ -83,14 +83,21 @@ export const defaultConfig = {
 
   // Email
   email: {
+    baseUrl: "http://localhost:3000",
     resendApiKey: process.env.RESEND_API_KEY || "",
     from: process.env.EMAIL_FROM || "no-reply@example.com",
     templates: {
-      // verification: async ({ token, toEmail }) => {
-      //   return <MyCustomVerificationEmail token={token} toEmail={toEmail} />;
-      // },
-      // passwordReset: async ({ token, toEmail }) => {
-      //   return <MyCustomPasswordResetEmail token={token} toEmail={toEmail} />;
+      // verification: ({ token, toEmail }) => {
+      //   return `
+      //   <html>
+      //     <body>
+      //       <h1>Verify Your Email</h1>
+      //       <h2>Hi ${toEmail},</h2>
+      //       <p>Here is a custom template for verifying your email:</p>
+      //       <a href="http://localhost:3000/verify-email?token=${token}">Verify Email</a>
+      //     </body>
+      //   </html>
+      //   `;
       // },
     },
   },

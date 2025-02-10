@@ -151,17 +151,18 @@ export const configSchema = z.object({
     .object({
       resendApiKey: z.string().optional(),
       from: z.string().default("no-reply@example.com"),
+      baseUrl: z.string().url().default("http://localhost:3000"),
       templates: z
         .object({
           verification: z
             .function()
             .args(z.object({ token: z.string(), toEmail: z.string() }))
-            .returns(z.any())
+            .returns(z.string()) // Expect HTML string
             .optional(),
           passwordReset: z
             .function()
             .args(z.object({ token: z.string(), toEmail: z.string() }))
-            .returns(z.any())
+            .returns(z.string())
             .optional(),
         })
         .optional(),

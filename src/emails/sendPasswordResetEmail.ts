@@ -1,43 +1,42 @@
 import type { AegisAuthConfig } from "../config";
-import { sendEmailWithResend } from "./sendEmail";
+import { type SendEmailOptions, sendEmail } from "./sendEmail";
 
-export async function sendPasswordResetEmail({
-  toEmail,
-  token,
-  config,
-}: {
+interface PasswordResetEmailOptions {
   toEmail: string;
   token: string;
   config: Required<AegisAuthConfig>;
-}) {
-  const { email } = config;
-  let emailContent: React.ReactNode;
+}
 
-  if (email?.templates?.passwordReset) {
-    emailContent = await email.templates.passwordReset({ token, toEmail });
+export async function sendPasswordResetEmail(
+  options: PasswordResetEmailOptions,
+) {
+  const { toEmail, token, config } = options;
+  let html: string;
+
+  if (config.email?.templates?.passwordReset) {
+    html = config.email.templates.passwordReset({ token, toEmail });
   } else {
-    emailContent = `
-      <html>
-        <body>
-          <p>You requested a password reset. Click the link below to reset your password:</p>
-          <a href="https://yourapp.com/reset-password?token=${token}">Reset Password</a>
-        </body>
-      </html>
+    html = `
+    <html>
+      <body>
+        <p>You requested a password reset. Click the link below to reset your password:</p>
+        <a href="${config.email.baseUrl}/reset-password?token=${token}">Reset Password</a>
+      </body>
+    </html>
     `;
   }
 
-  const subject = "Reset your password";
-  const from = email?.from || "no-reply@example.com";
+  const sendOption: SendEmailOptions = {
+    to: toEmail,
+    subject: "Reset your password",
+    html: html,
+    config: config,
+  };
 
   try {
-    const result = await sendEmailWithResend({
-      from,
-      to: toEmail,
-      subject,
-      react: emailContent,
-      config,
-    });
+    const result = await sendEmail(sendOption);
     config.logger.info("Password reset email sent", { toEmail, result });
+    return result;
   } catch (error) {
     config.logger.error("Failed to send password reset email", {
       toEmail,

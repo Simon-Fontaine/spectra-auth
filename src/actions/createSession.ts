@@ -1,31 +1,25 @@
 import type { PrismaClient } from "@prisma/client";
 import type { AegisAuthConfig } from "../config";
 import { generateCsrfToken, generateSessionToken } from "../security";
+import { type ActionResponse, type ClientSession, ErrorCodes } from "../types";
 import {
-  type ActionResponse,
-  type AuthHeaders,
-  type ClientSession,
-  ErrorCodes,
-} from "../types";
-import { clientSafeSession, createTime, parseRequest } from "../utils";
+  type ParsedRequestData,
+  clientSafeSession,
+  createTime,
+} from "../utils";
 
 export async function createSession(
   context: {
     prisma: PrismaClient;
     config: Required<AegisAuthConfig>;
-  },
-  request: {
-    headers: AuthHeaders;
+    parsedRequest: ParsedRequestData;
   },
   input: {
     userId: string;
   },
 ): Promise<ActionResponse<{ session: ClientSession }>> {
-  const { prisma, config } = context;
-  const { sessionToken, csrfToken, ...sessionInfo } = parseRequest(
-    request,
-    config,
-  );
+  const { prisma, config, parsedRequest } = context;
+  const { sessionToken, csrfToken, ...sessionInfo } = parsedRequest;
 
   const activeSessions = await prisma.session.count({
     where: {

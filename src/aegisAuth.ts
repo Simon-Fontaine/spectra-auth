@@ -26,13 +26,18 @@ export class AegisAuth {
   private prisma: PrismaClient;
   private config: Required<AegisAuthConfig>;
   private limiters: Limiters = {};
-  private createContext(request: {
-    headers: AuthHeaders;
-  }) {
+  private createContext() {
     return {
       prisma: this.prisma,
       config: this.config,
       limiters: this.limiters,
+    };
+  }
+  private createContextWithRequest(request: {
+    headers: AuthHeaders;
+  }) {
+    return {
+      ...this.createContext(),
       parsedRequest: parseRequest(request, this.config),
     };
   }
@@ -88,21 +93,24 @@ export class AegisAuth {
   }
 
   async completePasswordReset(
-    request: Parameters<typeof completePasswordResetCore>[1],
-    input: Parameters<typeof completePasswordResetCore>[2],
+    request: {
+      headers: AuthHeaders;
+    },
+    input: Parameters<typeof completePasswordResetCore>[1],
   ) {
     return completePasswordResetCore(
-      this.createContext(request),
-      request,
+      this.createContextWithRequest(request),
       input,
     );
   }
 
   async createSession(
-    request: Parameters<typeof createSessionCore>[1],
-    input: Parameters<typeof createSessionCore>[2],
+    request: {
+      headers: AuthHeaders;
+    },
+    input: Parameters<typeof createSessionCore>[1],
   ) {
-    return createSessionCore(this.createContext(request), request, input);
+    return createSessionCore(this.createContextWithRequest(request), input);
   }
 
   async createVerification(
@@ -112,21 +120,24 @@ export class AegisAuth {
   }
 
   async initiatePasswordReset(
-    request: Parameters<typeof initiatePasswordResetCore>[1],
-    input: Parameters<typeof initiatePasswordResetCore>[2],
+    request: {
+      headers: AuthHeaders;
+    },
+    input: Parameters<typeof initiatePasswordResetCore>[1],
   ) {
     return initiatePasswordResetCore(
-      this.createContext(request),
-      request,
+      this.createContextWithRequest(request),
       input,
     );
   }
 
   async loginUser(
-    request: Parameters<typeof loginUserCore>[1],
-    input: Parameters<typeof loginUserCore>[2],
+    request: {
+      headers: AuthHeaders;
+    },
+    input: Parameters<typeof loginUserCore>[1],
   ) {
-    return loginUserCore(this.createContext(request), request, input);
+    return loginUserCore(this.createContextWithRequest(request), input);
   }
 
   async logoutUser(input: Parameters<typeof logoutUserCore>[1]) {
@@ -134,10 +145,12 @@ export class AegisAuth {
   }
 
   async registerUser(
-    request: Parameters<typeof registerUserCore>[1],
-    input: Parameters<typeof registerUserCore>[2],
+    request: {
+      headers: AuthHeaders;
+    },
+    input: Parameters<typeof registerUserCore>[1],
   ) {
-    return registerUserCore(this.createContext(request), request, input);
+    return registerUserCore(this.createContextWithRequest(request), input);
   }
 
   async revokeAllSessionsForUser(
@@ -157,20 +170,23 @@ export class AegisAuth {
   }
 
   async validateAndRotateSession(
-    request: Parameters<typeof validateAndRotateSessionCore>[1],
-    input: Parameters<typeof validateAndRotateSessionCore>[2],
+    request: {
+      headers: AuthHeaders;
+    },
+    input: Parameters<typeof validateAndRotateSessionCore>[1],
   ) {
     return validateAndRotateSessionCore(
-      this.createContext(request),
-      request,
+      this.createContextWithRequest(request),
       input,
     );
   }
 
   async verifyEmail(
-    request: Parameters<typeof verifyEmailCore>[1],
-    input: Parameters<typeof verifyEmailCore>[2],
+    request: {
+      headers: AuthHeaders;
+    },
+    input: Parameters<typeof verifyEmailCore>[1],
   ) {
-    return verifyEmailCore(this.createContext(request), request, input);
+    return verifyEmailCore(this.createContextWithRequest(request), input);
   }
 }

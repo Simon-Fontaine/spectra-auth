@@ -3,11 +3,11 @@ import type { AegisAuthConfig } from "../config";
 import { signSessionToken, verifySessionToken } from "../security";
 import {
   type ActionResponse,
-  type AuthHeaders,
   type ClientSession,
   ErrorCodes,
   type PrismaSession,
 } from "../types";
+import type { ParsedRequestData } from "../utils";
 import { createSession } from "./createSession";
 import { revokeSession } from "./revokeSession";
 
@@ -15,9 +15,7 @@ export async function validateAndRotateSession(
   context: {
     prisma: PrismaClient;
     config: Required<AegisAuthConfig>;
-  },
-  request: {
-    headers: AuthHeaders;
+    parsedRequest: ParsedRequestData;
   },
   input: {
     sessionToken: string;
@@ -80,7 +78,7 @@ export async function validateAndRotateSession(
     timeSinceLastUpdate > config.session.rollingIntervalSeconds * 1000;
 
   if (shouldRotate) {
-    const newSession = await createSession(context, request, {
+    const newSession = await createSession(context, {
       userId: session.userId,
     });
 

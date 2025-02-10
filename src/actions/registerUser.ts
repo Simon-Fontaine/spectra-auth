@@ -5,13 +5,16 @@ import { sendVerificationEmail } from "../emails";
 import { hashPassword } from "../security";
 import {
   type ActionResponse,
-  type AuthHeaders,
   type ClientUser,
   ErrorCodes,
   type Limiters,
   type PrismaUser,
 } from "../types";
-import { clientSafeUser, limitIpAttempts, parseRequest } from "../utils";
+import {
+  type ParsedRequestData,
+  clientSafeUser,
+  limitIpAttempts,
+} from "../utils";
 import { registerSchema } from "../validations/registerSchema";
 import { createVerification } from "./createVerification";
 
@@ -20,9 +23,7 @@ export async function registerUser(
     prisma: PrismaClient;
     config: Required<AegisAuthConfig>;
     limiters: Limiters;
-  },
-  request: {
-    headers: AuthHeaders;
+    parsedRequest: ParsedRequestData;
   },
   input: {
     username: string;
@@ -31,8 +32,8 @@ export async function registerUser(
   },
 ): Promise<ActionResponse<{ user: ClientUser }>> {
   try {
-    const { prisma, config, limiters } = context;
-    const { ipAddress } = parseRequest(request, config);
+    const { prisma, config, limiters, parsedRequest } = context;
+    const { ipAddress } = parsedRequest;
 
     if (config.rateLimiting.login.enabled && ipAddress) {
       const limiter = limiters.register as Ratelimit;

@@ -2,13 +2,8 @@ import { type PrismaClient, VerificationType } from "@prisma/client";
 import type { Ratelimit } from "@upstash/ratelimit";
 import type { AegisAuthConfig } from "../config";
 import { hashPassword } from "../security";
-import {
-  type ActionResponse,
-  type AuthHeaders,
-  ErrorCodes,
-  type Limiters,
-} from "../types";
-import { limitIpAttempts, parseRequest } from "../utils";
+import { type ActionResponse, ErrorCodes, type Limiters } from "../types";
+import { type ParsedRequestData, limitIpAttempts } from "../utils";
 import { useVerificationToken } from "./useVerificationToken";
 
 export async function completePasswordReset(
@@ -16,17 +11,15 @@ export async function completePasswordReset(
     prisma: PrismaClient;
     config: Required<AegisAuthConfig>;
     limiters: Limiters;
-  },
-  request: {
-    headers: AuthHeaders;
+    parsedRequest: ParsedRequestData;
   },
   input: {
     token: string;
     newPassword: string;
   },
 ): Promise<ActionResponse> {
-  const { prisma, config, limiters } = context;
-  const { ipAddress } = parseRequest(request, config);
+  const { prisma, config, limiters, parsedRequest } = context;
+  const { ipAddress } = parsedRequest;
 
   if (config.rateLimiting.passwordReset.enabled && ipAddress) {
     const limiter = limiters.passwordReset as Ratelimit;

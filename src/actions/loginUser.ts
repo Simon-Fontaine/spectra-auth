@@ -4,7 +4,6 @@ import type { AegisAuthConfig } from "../config";
 import { verifyPassword } from "../security";
 import {
   type ActionResponse,
-  type AuthHeaders,
   type ClientSession,
   type ClientUser,
   ErrorCodes,
@@ -12,10 +11,10 @@ import {
   type PrismaUser,
 } from "../types";
 import {
+  type ParsedRequestData,
   clientSafeUser,
   createTime,
   limitIpAttempts,
-  parseRequest,
 } from "../utils";
 import { loginSchema } from "../validations/loginSchema";
 import { createSession } from "./createSession";
@@ -25,9 +24,7 @@ export async function loginUser(
     prisma: PrismaClient;
     config: Required<AegisAuthConfig>;
     limiters: Limiters;
-  },
-  request: {
-    headers: AuthHeaders;
+    parsedRequest: ParsedRequestData;
   },
   input: {
     usernameOrEmail: string;
@@ -35,8 +32,8 @@ export async function loginUser(
   },
 ): Promise<ActionResponse<{ user: ClientUser; session: ClientSession }>> {
   try {
-    const { prisma, config, limiters } = context;
-    const { ipAddress } = parseRequest(request, config);
+    const { prisma, config, limiters, parsedRequest } = context;
+    const { ipAddress } = parsedRequest;
 
     // Validate input using Zod schema.
     const credentials = loginSchema.safeParse(input);
@@ -182,7 +179,7 @@ export async function loginUser(
       data: { failedLoginAttempts: 0, lockedUntil: null },
     });
 
-    const newSession = await createSession(context, request, {
+    const newSession = await createSession(context, {
       userId: user.id,
     });
 

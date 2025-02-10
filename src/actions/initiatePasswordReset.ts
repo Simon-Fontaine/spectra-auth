@@ -4,12 +4,11 @@ import type { AegisAuthConfig } from "../config";
 import { sendPasswordResetEmail } from "../emails";
 import {
   type ActionResponse,
-  type AuthHeaders,
   ErrorCodes,
   type Limiters,
   type PrismaUser,
 } from "../types";
-import { limitIpAttempts, parseRequest } from "../utils";
+import { type ParsedRequestData, limitIpAttempts } from "../utils";
 import { createVerification } from "./createVerification";
 
 export async function initiatePasswordReset(
@@ -17,16 +16,14 @@ export async function initiatePasswordReset(
     prisma: PrismaClient;
     config: Required<AegisAuthConfig>;
     limiters: Limiters;
-  },
-  request: {
-    headers: AuthHeaders;
+    parsedRequest: ParsedRequestData;
   },
   input: {
     email: string;
   },
 ): Promise<ActionResponse> {
-  const { prisma, config, limiters } = context;
-  const { ipAddress } = parseRequest(request, config);
+  const { prisma, config, limiters, parsedRequest } = context;
+  const { ipAddress } = parsedRequest;
 
   if (config.rateLimiting.forgotPassword.enabled && ipAddress) {
     const limiter = limiters.forgotPassword as Ratelimit;

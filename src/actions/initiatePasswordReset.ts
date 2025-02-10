@@ -1,14 +1,21 @@
 import { type PrismaClient, VerificationType } from "@prisma/client";
+import type { Ratelimit } from "@upstash/ratelimit";
 import type { AegisAuthConfig } from "../config";
 import { sendPasswordResetEmail } from "../emails";
-import { type ActionResponse, ErrorCodes, type PrismaUser } from "../types";
-import { createRouteLimiter, limitIpAttempts } from "../utils";
+import {
+  type ActionResponse,
+  ErrorCodes,
+  type Limiters,
+  type PrismaUser,
+} from "../types";
+import { limitIpAttempts } from "../utils";
 import { createVerification } from "./createVerification";
 
 export async function initiatePasswordReset({
   options,
   prisma,
   config,
+  limiters,
 }: {
   options: {
     input: {
@@ -18,12 +25,13 @@ export async function initiatePasswordReset({
   };
   prisma: PrismaClient;
   config: Required<AegisAuthConfig>;
+  limiters: Limiters;
 }): Promise<ActionResponse> {
   const { input, ipAddress } = options;
 
   if (config.rateLimiting.forgotPassword.enabled && ipAddress) {
-    const limiter = createRouteLimiter({ routeKey: "forgotPassword", config });
-    const limit = await limitIpAttempts({ ipAddress, rateLimiter: limiter });
+    const limiter = limiters.forgotPassword as Ratelimit;
+    const limit = await limitIpAttempts({ ipAddress, limiter });
 
     if (!limit.success) {
       config.logger.securityEvent("RATE_LIMIT_EXCEEDED", {

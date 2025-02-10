@@ -1,4 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
+import type { Ratelimit } from "@upstash/ratelimit";
 import { UAParser } from "ua-parser-js";
 import type { AegisAuthConfig } from "../config";
 import { verifyPassword } from "../security";
@@ -7,14 +8,10 @@ import {
   type ClientSession,
   type ClientUser,
   ErrorCodes,
+  type Limiters,
   type PrismaUser,
 } from "../types";
-import {
-  clientSafeUser,
-  createRouteLimiter,
-  createTime,
-  limitIpAttempts,
-} from "../utils";
+import { clientSafeUser, createTime, limitIpAttempts } from "../utils";
 import { loginSchema } from "../validations/loginSchema";
 import { createSession } from "./createSession";
 
@@ -22,6 +19,7 @@ export async function loginUser({
   options,
   prisma,
   config,
+  limiters,
 }: {
   options: {
     input: {
@@ -33,6 +31,7 @@ export async function loginUser({
   };
   prisma: PrismaClient;
   config: Required<AegisAuthConfig>;
+  limiters: Limiters;
 }): Promise<ActionResponse<{ user: ClientUser; session: ClientSession }>> {
   try {
     const { input, ipAddress, userAgent } = options;
@@ -55,8 +54,8 @@ export async function loginUser({
     }
 
     if (config.rateLimiting.login.enabled && ipAddress) {
-      const limiter = createRouteLimiter({ routeKey: "login", config });
-      const limit = await limitIpAttempts({ ipAddress, rateLimiter: limiter });
+      const limiter = limiters.login as Ratelimit;
+      const limit = await limitIpAttempts({ ipAddress, limiter });
       if (!limit.success) {
         config.logger.securityEvent("RATE_LIMIT_EXCEEDED", {
           route: "login",

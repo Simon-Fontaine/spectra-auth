@@ -1,44 +1,15 @@
-import { Ratelimit } from "@upstash/ratelimit";
-import { Redis } from "@upstash/redis";
-import type { AegisAuthConfig } from "../config";
-
-export function createRouteLimiter({
-  routeKey,
-  config,
-}: {
-  routeKey:
-    | "login"
-    | "register"
-    | "verifyEmail"
-    | "forgotPassword"
-    | "passwordReset";
-  config: Required<AegisAuthConfig>;
-}): Ratelimit {
-  const rateLimitConfig = config.rateLimiting[routeKey];
-
-  return new Ratelimit({
-    redis: new Redis({
-      url: config.rateLimiting.kvRestApiUrl,
-      token: config.rateLimiting.kvRestApiToken,
-    }),
-    limiter: Ratelimit.fixedWindow(
-      rateLimitConfig.maxRequests,
-      `${rateLimitConfig.windowSeconds} s`,
-    ),
-    prefix: `aegis-route:${routeKey}:`,
-  });
-}
+import type { Ratelimit } from "@upstash/ratelimit";
 
 export async function limitIpAttempts({
   ipAddress,
-  rateLimiter,
-}: { ipAddress: string; rateLimiter: Ratelimit }): Promise<{
+  limiter,
+}: { ipAddress: string; limiter: Ratelimit }): Promise<{
   success: boolean;
   remaining: number;
   limit: number;
   reset: number;
 }> {
-  const limit = await rateLimiter.limit(ipAddress);
+  const limit = await limiter.limit(ipAddress);
   return {
     success: limit.success,
     remaining: limit.remaining,

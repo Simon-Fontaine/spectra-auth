@@ -1,5 +1,8 @@
 import type { PrismaClient } from "@prisma/client";
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
 import _ from "lodash";
+import { ZodError } from "zod";
 import {
   completePasswordReset as completePasswordResetCore,
   createSession as createSessionCore,
@@ -16,10 +19,12 @@ import {
 } from "./actions";
 import { type AegisAuthConfig, configSchema, defaultConfig } from "./config";
 import { ConfigurationError } from "./errors/config";
+import type { Limiters } from "./types";
 
 export class AegisAuth {
   private prisma: PrismaClient;
   private config: Required<AegisAuthConfig>;
+  private limiters: Limiters = {};
 
   constructor(prisma: PrismaClient, userConfig?: AegisAuthConfig) {
     this.prisma = prisma;
@@ -27,9 +32,48 @@ export class AegisAuth {
     try {
       configSchema.parse(mergedConfig);
     } catch (error) {
-      throw new ConfigurationError((error as Error).message ?? undefined);
+      if (error instanceof ZodError) {
+        throw new ConfigurationError(
+          error.errors
+            .map((e) => `${e.path.join(".")}: ${e.message}`)
+            .join("; "),
+        );
+      }
+      throw new ConfigurationError(
+        (error as Error).message ?? "Unknown configuration error",
+      );
     }
     this.config = mergedConfig as Required<AegisAuthConfig>;
+
+    // Initialize rate limiters ONCE
+    if (this.config.rateLimiting.enabled) {
+      const redis = new Redis({
+        url: this.config.rateLimiting.kvRestApiUrl,
+        token: this.config.rateLimiting.kvRestApiToken,
+      });
+
+      const routes = [
+        "login",
+        "register",
+        "verifyEmail",
+        "forgotPassword",
+        "passwordReset",
+      ] as const;
+
+      for (const route of routes) {
+        const routeConfig = this.config.rateLimiting[route];
+        if (routeConfig.enabled) {
+          this.limiters[route] = new Ratelimit({
+            redis,
+            limiter: Ratelimit.slidingWindow(
+              routeConfig.maxRequests,
+              `${routeConfig.windowSeconds} s`,
+            ),
+            prefix: `aegis-route:${route}:`,
+          });
+        }
+      }
+    }
   }
 
   async completePasswordReset(
@@ -39,6 +83,7 @@ export class AegisAuth {
       options,
       prisma: this.prisma,
       config: this.config,
+      limiters: this.limiters,
     });
   }
 
@@ -69,6 +114,7 @@ export class AegisAuth {
       options,
       prisma: this.prisma,
       config: this.config,
+      limiters: this.limiters,
     });
   }
 
@@ -77,6 +123,7 @@ export class AegisAuth {
       options,
       prisma: this.prisma,
       config: this.config,
+      limiters: this.limiters,
     });
   }
 
@@ -95,6 +142,7 @@ export class AegisAuth {
       options,
       prisma: this.prisma,
       config: this.config,
+      limiters: this.limiters,
     });
   }
 
@@ -143,6 +191,7 @@ export class AegisAuth {
       options,
       prisma: this.prisma,
       config: this.config,
+      limiters: this.limiters,
     });
   }
 }

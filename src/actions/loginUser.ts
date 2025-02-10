@@ -1,41 +1,42 @@
 import type { PrismaClient } from "@prisma/client";
 import type { Ratelimit } from "@upstash/ratelimit";
-import { UAParser } from "ua-parser-js";
 import type { AegisAuthConfig } from "../config";
 import { verifyPassword } from "../security";
 import {
   type ActionResponse,
+  type AuthHeaders,
   type ClientSession,
   type ClientUser,
   ErrorCodes,
   type Limiters,
   type PrismaUser,
 } from "../types";
-import { clientSafeUser, createTime, limitIpAttempts } from "../utils";
+import {
+  clientSafeUser,
+  createTime,
+  limitIpAttempts,
+  parseRequest,
+} from "../utils";
 import { loginSchema } from "../validations/loginSchema";
 import { createSession } from "./createSession";
 
-export async function loginUser({
-  options,
-  prisma,
-  config,
-  limiters,
-}: {
-  options: {
-    input: {
-      usernameOrEmail: string;
-      password: string;
-    };
-    ipAddress?: string;
-    userAgent?: string;
-  };
-  prisma: PrismaClient;
-  config: Required<AegisAuthConfig>;
-  limiters: Limiters;
-}): Promise<ActionResponse<{ user: ClientUser; session: ClientSession }>> {
+export async function loginUser(
+  context: {
+    prisma: PrismaClient;
+    config: Required<AegisAuthConfig>;
+    limiters: Limiters;
+  },
+  request: {
+    headers: AuthHeaders;
+  },
+  input: {
+    usernameOrEmail: string;
+    password: string;
+  },
+): Promise<ActionResponse<{ user: ClientUser; session: ClientSession }>> {
   try {
-    const { input, ipAddress, userAgent } = options;
-    const { device, browser, os } = UAParser(userAgent);
+    const { prisma, config, limiters } = context;
+    const { ipAddress } = parseRequest(request, config);
 
     // Validate input using Zod schema.
     const credentials = loginSchema.safeParse(input);
@@ -181,19 +182,8 @@ export async function loginUser({
       data: { failedLoginAttempts: 0, lockedUntil: null },
     });
 
-    const newSession = await createSession({
-      options: {
-        userId: user.id,
-        ipAddress,
-        location: "",
-        country: "",
-        device: device.type ?? "Desktop",
-        browser: browser.name ?? "Unknown",
-        os: os.name ?? "Unknown",
-        userAgent,
-      },
-      prisma,
-      config,
+    const newSession = await createSession(context, request, {
+      userId: user.id,
     });
 
     if (!newSession.success || !newSession.data?.session) {
@@ -220,6 +210,8 @@ export async function loginUser({
       data: { user: clientUser, session: newSession.data.session },
     };
   } catch (err) {
+    const { config } = context;
+
     config.logger.error("Unexpected error in loginUser", { error: err });
     return {
       success: false,

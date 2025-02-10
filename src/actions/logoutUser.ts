@@ -3,20 +3,16 @@ import type { AegisAuthConfig } from "../config";
 import type { ActionResponse } from "../types";
 import { revokeSession } from "./revokeSession";
 
-export async function logoutUser({
-  sessionToken,
-  prisma,
-  config,
-}: {
-  sessionToken: string;
-  prisma: PrismaClient;
-  config: Required<AegisAuthConfig>;
-}): Promise<ActionResponse> {
-  const result = await revokeSession({
-    options: { input: { sessionToken } },
-    prisma,
-    config,
-  });
+export async function logoutUser(
+  context: {
+    prisma: PrismaClient;
+    config: Required<AegisAuthConfig>;
+  },
+  input: {
+    sessionToken: string;
+  },
+): Promise<ActionResponse> {
+  const result = await revokeSession(context, input);
 
   if (!result.success) {
     return result;

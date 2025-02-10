@@ -7,21 +7,17 @@ import {
   type VerificationType,
 } from "../types";
 
-export async function useVerificationToken({
-  options,
-  prisma,
-  config,
-}: {
-  options: {
-    input: {
-      token: string;
-      type: VerificationType;
-    };
-  };
-  prisma: PrismaClient;
-  config: Required<AegisAuthConfig>;
-}): Promise<ActionResponse<{ verification: PrismaVerification }>> {
-  const { input } = options;
+export async function useVerificationToken(
+  context: {
+    prisma: PrismaClient;
+    config: Required<AegisAuthConfig>;
+  },
+  input: {
+    token: string;
+    type: VerificationType;
+  },
+): Promise<ActionResponse<{ verification: PrismaVerification }>> {
+  const { prisma, config } = context;
 
   const verification = (await prisma.verification.findUnique({
     where: { token: input.token },

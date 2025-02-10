@@ -5,35 +5,34 @@ import { sendVerificationEmail } from "../emails";
 import { hashPassword } from "../security";
 import {
   type ActionResponse,
+  type AuthHeaders,
   type ClientUser,
   ErrorCodes,
   type Limiters,
   type PrismaUser,
 } from "../types";
-import { clientSafeUser, limitIpAttempts } from "../utils";
+import { clientSafeUser, limitIpAttempts, parseRequest } from "../utils";
 import { registerSchema } from "../validations/registerSchema";
 import { createVerification } from "./createVerification";
 
-export async function registerUser({
-  options,
-  prisma,
-  config,
-  limiters,
-}: {
-  options: {
-    input: {
-      username: string;
-      email: string;
-      password: string;
-    };
-    ipAddress?: string;
-  };
-  prisma: PrismaClient;
-  config: Required<AegisAuthConfig>;
-  limiters: Limiters;
-}): Promise<ActionResponse<{ user: ClientUser }>> {
+export async function registerUser(
+  context: {
+    prisma: PrismaClient;
+    config: Required<AegisAuthConfig>;
+    limiters: Limiters;
+  },
+  request: {
+    headers: AuthHeaders;
+  },
+  input: {
+    username: string;
+    email: string;
+    password: string;
+  },
+): Promise<ActionResponse<{ user: ClientUser }>> {
   try {
-    const { input, ipAddress } = options;
+    const { prisma, config, limiters } = context;
+    const { ipAddress } = parseRequest(request, config);
 
     if (config.rateLimiting.login.enabled && ipAddress) {
       const limiter = limiters.register as Ratelimit;
@@ -102,13 +101,9 @@ export async function registerUser({
     })) as PrismaUser;
 
     if (config.accountSecurity.requireEmailVerification) {
-      const verification = await createVerification({
-        options: {
-          userId: user.id,
-          type: VerificationType.EMAIL_VERIFICATION,
-        },
-        prisma,
-        config,
+      const verification = await createVerification(context, {
+        userId: user.id,
+        type: VerificationType.EMAIL_VERIFICATION,
       });
 
       if (!verification.success || !verification.data?.verification) {
@@ -138,6 +133,8 @@ export async function registerUser({
       data: { user: clientUser },
     };
   } catch (err) {
+    const { config } = context;
+
     config.logger.error("Unexpected error in registerUser", { error: err });
     return {
       success: false,

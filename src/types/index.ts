@@ -1,4 +1,5 @@
 export * from "./errorCodes";
+export * from "./header";
 export * from "./logger";
 export * from "./rateLimit";
 export * from "./returns";

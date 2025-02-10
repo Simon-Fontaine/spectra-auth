@@ -4,30 +4,29 @@ import type { AegisAuthConfig } from "../config";
 import { sendPasswordResetEmail } from "../emails";
 import {
   type ActionResponse,
+  type AuthHeaders,
   ErrorCodes,
   type Limiters,
   type PrismaUser,
 } from "../types";
-import { limitIpAttempts } from "../utils";
+import { limitIpAttempts, parseRequest } from "../utils";
 import { createVerification } from "./createVerification";
 
-export async function initiatePasswordReset({
-  options,
-  prisma,
-  config,
-  limiters,
-}: {
-  options: {
-    input: {
-      email: string;
-    };
-    ipAddress?: string;
-  };
-  prisma: PrismaClient;
-  config: Required<AegisAuthConfig>;
-  limiters: Limiters;
-}): Promise<ActionResponse> {
-  const { input, ipAddress } = options;
+export async function initiatePasswordReset(
+  context: {
+    prisma: PrismaClient;
+    config: Required<AegisAuthConfig>;
+    limiters: Limiters;
+  },
+  request: {
+    headers: AuthHeaders;
+  },
+  input: {
+    email: string;
+  },
+): Promise<ActionResponse> {
+  const { prisma, config, limiters } = context;
+  const { ipAddress } = parseRequest(request, config);
 
   if (config.rateLimiting.forgotPassword.enabled && ipAddress) {
     const limiter = limiters.forgotPassword as Ratelimit;
@@ -63,13 +62,9 @@ export async function initiatePasswordReset({
     };
   }
 
-  const verification = await createVerification({
-    options: {
-      userId: existingUser.id,
-      type: VerificationType.PASSWORD_RESET,
-    },
-    prisma,
-    config,
+  const verification = await createVerification(context, {
+    userId: existingUser.id,
+    type: VerificationType.PASSWORD_RESET,
   });
 
   if (!verification.success || !verification.data?.verification) {

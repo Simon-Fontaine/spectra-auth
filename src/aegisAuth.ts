@@ -19,12 +19,23 @@ import {
 } from "./actions";
 import { type AegisAuthConfig, configSchema, defaultConfig } from "./config";
 import { ConfigurationError } from "./errors/config";
-import type { Limiters } from "./types";
+import type { AuthHeaders, Limiters } from "./types";
+import { parseRequest } from "./utils";
 
 export class AegisAuth {
   private prisma: PrismaClient;
   private config: Required<AegisAuthConfig>;
   private limiters: Limiters = {};
+  private createContext(request: {
+    headers: AuthHeaders;
+  }) {
+    return {
+      prisma: this.prisma,
+      config: this.config,
+      limiters: this.limiters,
+      parsedRequest: parseRequest(request, this.config),
+    };
+  }
 
   constructor(prisma: PrismaClient, userConfig?: AegisAuthConfig) {
     this.prisma = prisma;
@@ -77,121 +88,89 @@ export class AegisAuth {
   }
 
   async completePasswordReset(
-    options: Parameters<typeof completePasswordResetCore>[0]["options"],
+    request: Parameters<typeof completePasswordResetCore>[1],
+    input: Parameters<typeof completePasswordResetCore>[2],
   ) {
-    return completePasswordResetCore({
-      options,
-      prisma: this.prisma,
-      config: this.config,
-      limiters: this.limiters,
-    });
+    return completePasswordResetCore(
+      this.createContext(request),
+      request,
+      input,
+    );
   }
 
   async createSession(
-    options: Parameters<typeof createSessionCore>[0]["options"],
+    request: Parameters<typeof createSessionCore>[1],
+    input: Parameters<typeof createSessionCore>[2],
   ) {
-    return createSessionCore({
-      options,
-      prisma: this.prisma,
-      config: this.config,
-    });
+    return createSessionCore(this.createContext(request), request, input);
   }
 
   async createVerification(
-    options: Parameters<typeof createVerificationCore>[0]["options"],
+    input: Parameters<typeof createVerificationCore>[1],
   ) {
-    return createVerificationCore({
-      options,
-      prisma: this.prisma,
-      config: this.config,
-    });
+    return createVerificationCore(this.createContext(), input);
   }
 
   async initiatePasswordReset(
-    options: Parameters<typeof initiatePasswordResetCore>[0]["options"],
+    request: Parameters<typeof initiatePasswordResetCore>[1],
+    input: Parameters<typeof initiatePasswordResetCore>[2],
   ) {
-    return initiatePasswordResetCore({
-      options,
-      prisma: this.prisma,
-      config: this.config,
-      limiters: this.limiters,
-    });
+    return initiatePasswordResetCore(
+      this.createContext(request),
+      request,
+      input,
+    );
   }
 
-  async loginUser(options: Parameters<typeof loginUserCore>[0]["options"]) {
-    return loginUserCore({
-      options,
-      prisma: this.prisma,
-      config: this.config,
-      limiters: this.limiters,
-    });
+  async loginUser(
+    request: Parameters<typeof loginUserCore>[1],
+    input: Parameters<typeof loginUserCore>[2],
+  ) {
+    return loginUserCore(this.createContext(request), request, input);
   }
 
-  async logoutUser(sessionToken: string) {
-    return logoutUserCore({
-      sessionToken,
-      prisma: this.prisma,
-      config: this.config,
-    });
+  async logoutUser(input: Parameters<typeof logoutUserCore>[1]) {
+    return logoutUserCore(this.createContext(), input);
   }
 
   async registerUser(
-    options: Parameters<typeof registerUserCore>[0]["options"],
+    request: Parameters<typeof registerUserCore>[1],
+    input: Parameters<typeof registerUserCore>[2],
   ) {
-    return registerUserCore({
-      options,
-      prisma: this.prisma,
-      config: this.config,
-      limiters: this.limiters,
-    });
+    return registerUserCore(this.createContext(request), request, input);
   }
 
   async revokeAllSessionsForUser(
-    options: Parameters<typeof revokeAllSessionsForUserCore>[0]["options"],
+    input: Parameters<typeof revokeAllSessionsForUserCore>[1],
   ) {
-    return revokeAllSessionsForUserCore({
-      options,
-      prisma: this.prisma,
-      config: this.config,
-    });
+    return revokeAllSessionsForUserCore(this.createContext(), input);
   }
 
-  async revokeSession(
-    options: Parameters<typeof revokeSessionCore>[0]["options"],
-  ) {
-    return revokeSessionCore({
-      options,
-      prisma: this.prisma,
-      config: this.config,
-    });
+  async revokeSession(input: Parameters<typeof revokeSessionCore>[1]) {
+    return revokeSessionCore(this.createContext(), input);
   }
 
   async useVerificationToken(
-    options: Parameters<typeof useVerificationTokenCore>[0]["options"],
+    input: Parameters<typeof useVerificationTokenCore>[1],
   ) {
-    return useVerificationTokenCore({
-      options,
-      prisma: this.prisma,
-      config: this.config,
-    });
+    return useVerificationTokenCore(this.createContext(), input);
   }
 
   async validateAndRotateSession(
-    options: Parameters<typeof validateAndRotateSessionCore>[0]["options"],
+    request: Parameters<typeof validateAndRotateSessionCore>[1],
+    input: Parameters<typeof validateAndRotateSessionCore>[2],
   ) {
-    return validateAndRotateSessionCore({
-      options,
-      prisma: this.prisma,
-      config: this.config,
-    });
+    return validateAndRotateSessionCore(
+      this.createContext(request),
+      request,
+      input,
+    );
   }
 
-  async verifyEmail(options: Parameters<typeof verifyEmailCore>[0]["options"]) {
-    return verifyEmailCore({
-      options,
-      prisma: this.prisma,
-      config: this.config,
-      limiters: this.limiters,
-    });
+  async verifyEmail(
+    request: Parameters<typeof verifyEmailCore>[1],
+    input: Parameters<typeof verifyEmailCore>[2],
+  ) {
+    return verifyEmailCore(this.createContext(request), request, input);
   }
 }

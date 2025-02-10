@@ -3,19 +3,18 @@ import type { AegisAuthConfig } from "../config";
 import { ErrorCodes } from "../types/errorCodes";
 import type { ActionResponse } from "../types/returns";
 
-export async function revokeAllSessionsForUser({
-  options,
-  prisma,
-  config,
-}: {
-  options: {
-    input: { userId: string };
-  };
-  prisma: PrismaClient;
-  config: Required<AegisAuthConfig>;
-}): Promise<ActionResponse> {
+export async function revokeAllSessionsForUser(
+  context: {
+    prisma: PrismaClient;
+    config: Required<AegisAuthConfig>;
+  },
+  input: {
+    userId: string;
+  },
+): Promise<ActionResponse> {
   try {
-    const { userId } = options.input;
+    const { prisma, config } = context;
+    const { userId } = input;
 
     await prisma.session.updateMany({
       where: {
@@ -31,7 +30,8 @@ export async function revokeAllSessionsForUser({
       message: "All sessions revoked for user",
     };
   } catch (err) {
-    const { userId } = options.input;
+    const { config } = context;
+    const { userId } = input;
 
     config.logger.error("Failed to revoke all sessions", {
       userId,

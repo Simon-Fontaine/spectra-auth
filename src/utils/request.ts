@@ -1,34 +1,53 @@
 import { UAParser } from "ua-parser-js";
 import type { AegisAuthConfig } from "../config";
 import { getCsrfToken, getSessionToken } from "../cookies";
+import type { AuthHeaders } from "../types";
 
-export function parseRequest({
-  request,
-  config,
-}: {
-  request: Request;
-  config: Required<AegisAuthConfig>;
-}) {
-  const sessionHeader = request.headers.get(config.session.cookieName) || "";
-  const csrfHeader = request.headers.get(config.csrf.cookieName) || "";
+export interface ParsedRequestData {
+  sessionToken?: string;
+  csrfToken?: string;
+  userAgent?: string;
+  device: string;
+  browser: string;
+  os: string;
+  ipAddress?: string;
+}
 
-  const sessionToken = getSessionToken({ cookieHeader: sessionHeader, config });
+export function parseRequest(
+  request: {
+    headers: AuthHeaders;
+  },
+  config: Required<AegisAuthConfig>,
+): ParsedRequestData {
+  const getHeader = (key: string) => {
+    if ("get" in request.headers && typeof request.headers.get === "function") {
+      return request.headers.get(key);
+    }
+    return undefined;
+  };
+
+  const sessionHeader = getHeader(config.session.cookieName) || "";
+  const csrfHeader = getHeader(config.csrf.cookieName) || "";
+
+  const sessionToken = getSessionToken({
+    cookieHeader: sessionHeader,
+    config,
+  });
   const csrfToken = getCsrfToken({ cookieHeader: csrfHeader, config });
 
-  const userAgent = request.headers.get("user-agent");
+  const userAgent = getHeader("user-agent");
   const { ua, device, browser, os } = UAParser(userAgent);
 
-  let ipAddress: string | null = null;
-  const forwardedFor = request.headers.get("x-forwarded-for") as
-    | string[]
-    | string
-    | null;
+  let ipAddress: string | undefined = undefined;
+  const forwardedFor = getHeader("x-forwarded-for");
 
   if (forwardedFor) {
-    const ips = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor;
-    ipAddress = ips.split(",")[0].trim();
+    const ips = Array.isArray(forwardedFor)
+      ? forwardedFor[0]
+      : forwardedFor.split(",")[0];
+    ipAddress = ips.trim();
   } else {
-    ipAddress = request.headers.get("x-real-ip");
+    ipAddress = getHeader("x-real-ip") ?? undefined;
   }
 
   return {
@@ -38,6 +57,6 @@ export function parseRequest({
     device: device.type ?? "Desktop",
     browser: browser.name ?? "Unknown",
     os: os.name ?? "Unknown",
-    ipAddress,
+    ipAddress: ipAddress,
   };
 }

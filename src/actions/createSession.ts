@@ -1,30 +1,35 @@
 import type { PrismaClient } from "@prisma/client";
 import type { AegisAuthConfig } from "../config";
 import { generateCsrfToken, generateSessionToken } from "../security";
-import { type ActionResponse, type ClientSession, ErrorCodes } from "../types";
-import { clientSafeSession, createTime } from "../utils";
+import {
+  type ActionResponse,
+  type AuthHeaders,
+  type ClientSession,
+  ErrorCodes,
+} from "../types";
+import { clientSafeSession, createTime, parseRequest } from "../utils";
 
-export async function createSession({
-  options,
-  prisma,
-  config,
-}: {
-  options: {
+export async function createSession(
+  context: {
+    prisma: PrismaClient;
+    config: Required<AegisAuthConfig>;
+  },
+  request: {
+    headers: AuthHeaders;
+  },
+  input: {
     userId: string;
-    ipAddress?: string;
-    location?: string;
-    country?: string;
-    device?: string;
-    browser?: string;
-    os?: string;
-    userAgent?: string;
-  };
-  prisma: PrismaClient;
-  config: Required<AegisAuthConfig>;
-}): Promise<ActionResponse<{ session: ClientSession }>> {
+  },
+): Promise<ActionResponse<{ session: ClientSession }>> {
+  const { prisma, config } = context;
+  const { sessionToken, csrfToken, ...sessionInfo } = parseRequest(
+    request,
+    config,
+  );
+
   const activeSessions = await prisma.session.count({
     where: {
-      userId: options.userId,
+      userId: input.userId,
       isRevoked: false,
     },
   });
@@ -34,7 +39,7 @@ export async function createSession({
     activeSessions >= config.session.maxSessionsPerUser
   ) {
     config.logger.securityEvent("SESSION_LIMIT_REACHED", {
-      userId: options.userId,
+      userId: input.userId,
       maxSessionsPerUser: config.session.maxSessionsPerUser,
     });
 
@@ -55,13 +60,14 @@ export async function createSession({
       csrfTokenHash: csrfTokens.csrfTokenHash,
       tokenHash: sessionTokens.sessionTokenHash,
       expiresAt: sessionExpiry,
-      ...options,
+      ...input,
+      ...sessionInfo,
     },
   });
 
   config.logger.securityEvent("SESSION_CREATED", {
     sessionId: session.id,
-    ...options,
+    ...input,
   });
 
   const clientSession = clientSafeSession({

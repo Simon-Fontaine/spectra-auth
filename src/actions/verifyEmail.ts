@@ -1,27 +1,30 @@
 import { type PrismaClient, VerificationType } from "@prisma/client";
 import type { Ratelimit } from "@upstash/ratelimit";
 import type { AegisAuthConfig } from "../config";
-import { type ActionResponse, ErrorCodes, type Limiters } from "../types";
-import { limitIpAttempts } from "../utils";
+import {
+  type ActionResponse,
+  type AuthHeaders,
+  ErrorCodes,
+  type Limiters,
+} from "../types";
+import { limitIpAttempts, parseRequest } from "../utils";
 import { useVerificationToken } from "./useVerificationToken";
 
-export async function verifyEmail({
-  options,
-  prisma,
-  config,
-  limiters,
-}: {
-  options: {
-    input: {
-      token: string;
-    };
-    ipAddress?: string;
-  };
-  prisma: PrismaClient;
-  config: Required<AegisAuthConfig>;
-  limiters: Limiters;
-}): Promise<ActionResponse> {
-  const { input, ipAddress } = options;
+export async function verifyEmail(
+  context: {
+    prisma: PrismaClient;
+    config: Required<AegisAuthConfig>;
+    limiters: Limiters;
+  },
+  request: {
+    headers: AuthHeaders;
+  },
+  input: {
+    token: string;
+  },
+): Promise<ActionResponse> {
+  const { prisma, config, limiters } = context;
+  const { ipAddress } = parseRequest(request, config);
 
   if (config.rateLimiting.verifyEmail.enabled && ipAddress) {
     const limiter = limiters.verifyEmail as Ratelimit;
@@ -42,15 +45,9 @@ export async function verifyEmail({
     }
   }
 
-  const verification = await useVerificationToken({
-    options: {
-      input: {
-        token: input.token,
-        type: VerificationType.EMAIL_VERIFICATION,
-      },
-    },
-    prisma,
-    config,
+  const verification = await useVerificationToken(context, {
+    token: input.token,
+    type: VerificationType.EMAIL_VERIFICATION,
   });
 
   if (!verification.success || !verification.data?.verification) {

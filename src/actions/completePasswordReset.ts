@@ -2,28 +2,31 @@ import { type PrismaClient, VerificationType } from "@prisma/client";
 import type { Ratelimit } from "@upstash/ratelimit";
 import type { AegisAuthConfig } from "../config";
 import { hashPassword } from "../security";
-import { type ActionResponse, ErrorCodes, type Limiters } from "../types";
-import { limitIpAttempts } from "../utils";
+import {
+  type ActionResponse,
+  type AuthHeaders,
+  ErrorCodes,
+  type Limiters,
+} from "../types";
+import { limitIpAttempts, parseRequest } from "../utils";
 import { useVerificationToken } from "./useVerificationToken";
 
-export async function completePasswordReset({
-  options,
-  prisma,
-  config,
-  limiters,
-}: {
-  options: {
-    input: {
-      token: string;
-      newPassword: string;
-    };
-    ipAddress?: string;
-  };
-  prisma: PrismaClient;
-  config: Required<AegisAuthConfig>;
-  limiters: Limiters;
-}): Promise<ActionResponse> {
-  const { input, ipAddress } = options;
+export async function completePasswordReset(
+  context: {
+    prisma: PrismaClient;
+    config: Required<AegisAuthConfig>;
+    limiters: Limiters;
+  },
+  request: {
+    headers: AuthHeaders;
+  },
+  input: {
+    token: string;
+    newPassword: string;
+  },
+): Promise<ActionResponse> {
+  const { prisma, config, limiters } = context;
+  const { ipAddress } = parseRequest(request, config);
 
   if (config.rateLimiting.passwordReset.enabled && ipAddress) {
     const limiter = limiters.passwordReset as Ratelimit;
@@ -44,15 +47,9 @@ export async function completePasswordReset({
     }
   }
 
-  const verification = await useVerificationToken({
-    options: {
-      input: {
-        token: input.token,
-        type: VerificationType.PASSWORD_RESET,
-      },
-    },
-    prisma,
-    config,
+  const verification = await useVerificationToken(context, {
+    token: input.token,
+    type: VerificationType.PASSWORD_RESET,
   });
 
   if (!verification.success || !verification.data?.verification) {

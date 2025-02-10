@@ -8,22 +8,22 @@ import type {
 } from "../types";
 import { createTime } from "../utils";
 
-export async function createVerification({
-  options,
-  prisma,
-  config,
-}: {
-  options: {
+export async function createVerification(
+  context: {
+    prisma: PrismaClient;
+    config: Required<AegisAuthConfig>;
+  },
+  input: {
     userId: string;
     type: VerificationType;
     tokenExpirySeconds?: number;
-  };
-  prisma: PrismaClient;
-  config: Required<AegisAuthConfig>;
-}): Promise<ActionResponse<{ verification: PrismaVerification }>> {
+  },
+): Promise<ActionResponse<{ verification: PrismaVerification }>> {
+  const { prisma, config } = context;
+
   const verificationToken = await createVerificationToken({ config });
   const expiresAt = createTime(
-    options.tokenExpirySeconds || config.verification.tokenExpirySeconds,
+    input.tokenExpirySeconds || config.verification.tokenExpirySeconds,
     "s",
   ).getDate();
 
@@ -31,8 +31,8 @@ export async function createVerification({
     data: {
       token: verificationToken,
       expiresAt,
-      type: options.type,
-      userId: options.userId,
+      type: input.type,
+      userId: input.userId,
     },
   })) as PrismaVerification;
 

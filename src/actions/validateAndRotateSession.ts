@@ -3,6 +3,7 @@ import type { AegisAuthConfig } from "../config";
 import { signSessionToken, verifySessionToken } from "../security";
 import {
   type ActionResponse,
+  type AuthHeaders,
   type ClientSession,
   ErrorCodes,
   type PrismaSession,
@@ -10,20 +11,20 @@ import {
 import { createSession } from "./createSession";
 import { revokeSession } from "./revokeSession";
 
-export async function validateAndRotateSession({
-  options,
-  prisma,
-  config,
-}: {
-  options: {
-    input: {
-      sessionToken: string;
-    };
-  };
-  prisma: PrismaClient;
-  config: Required<AegisAuthConfig>;
-}): Promise<ActionResponse<{ session?: ClientSession; rolled: boolean }>> {
-  const { sessionToken } = options.input;
+export async function validateAndRotateSession(
+  context: {
+    prisma: PrismaClient;
+    config: Required<AegisAuthConfig>;
+  },
+  request: {
+    headers: AuthHeaders;
+  },
+  input: {
+    sessionToken: string;
+  },
+): Promise<ActionResponse<{ session?: ClientSession; rolled: boolean }>> {
+  const { prisma, config } = context;
+  const { sessionToken } = input;
   const tokenHash = await signSessionToken({ sessionToken, config });
 
   const session = (await prisma.session.findUnique({
@@ -79,19 +80,8 @@ export async function validateAndRotateSession({
     timeSinceLastUpdate > config.session.rollingIntervalSeconds * 1000;
 
   if (shouldRotate) {
-    const newSession = await createSession({
-      options: {
-        userId: session.userId,
-        ipAddress: session.ipAddress || undefined,
-        location: session.location || undefined,
-        country: session.country || undefined,
-        device: session.device || undefined,
-        browser: session.browser || undefined,
-        os: session.os || undefined,
-        userAgent: session.userAgent || undefined,
-      },
-      prisma,
-      config,
+    const newSession = await createSession(context, request, {
+      userId: session.userId,
     });
 
     if (!newSession.success || !newSession.data?.session) {
@@ -102,14 +92,8 @@ export async function validateAndRotateSession({
         code: ErrorCodes.FAILED_TO_ROLL_SESSION,
       };
     }
-    await revokeSession({
-      options: {
-        input: {
-          sessionToken,
-        },
-      },
-      prisma,
-      config,
+    await revokeSession(context, {
+      sessionToken,
     });
 
     config.logger.securityEvent("SESSION_ROTATED", {

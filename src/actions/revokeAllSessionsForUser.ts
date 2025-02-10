@@ -2,6 +2,7 @@ import type { PrismaClient } from "@prisma/client";
 import type { AegisAuthConfig } from "../config";
 import { ErrorCodes } from "../types/errorCodes";
 import type { ActionResponse } from "../types/returns";
+import { revokeAllSessionsForUserSchema } from "../validations";
 
 export async function revokeAllSessionsForUser(
   context: {
@@ -12,9 +13,22 @@ export async function revokeAllSessionsForUser(
     userId: string;
   },
 ): Promise<ActionResponse> {
+  const { prisma, config } = context;
+
   try {
-    const { prisma, config } = context;
-    const { userId } = input;
+    const validatedInput = revokeAllSessionsForUserSchema.safeParse(input);
+    if (!validatedInput.success) {
+      config.logger.securityEvent("INVALID_INPUT", {
+        route: "revokeAllSessionsForUser",
+      });
+      return {
+        success: false,
+        status: 400,
+        message: "Invalid input provided",
+        code: ErrorCodes.INVALID_INPUT,
+      };
+    }
+    const { userId } = validatedInput.data;
 
     await prisma.session.updateMany({
       where: {
@@ -30,11 +44,8 @@ export async function revokeAllSessionsForUser(
       message: "All sessions revoked for user",
     };
   } catch (err) {
-    const { config } = context;
-    const { userId } = input;
-
     config.logger.error("Failed to revoke all sessions", {
-      userId,
+      userId: input.userId,
       error: err,
     });
     return {

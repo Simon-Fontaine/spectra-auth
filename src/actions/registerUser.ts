@@ -15,7 +15,7 @@ import {
   clientSafeUser,
   limitIpAttempts,
 } from "../utils";
-import { registerSchema } from "../validations/registerSchema";
+import { registerSchema } from "../validations";
 import { createVerification } from "./createVerification";
 
 export async function registerUser(
@@ -31,11 +31,11 @@ export async function registerUser(
     password: string;
   },
 ): Promise<ActionResponse<{ user: ClientUser }>> {
-  try {
-    const { prisma, config, limiters, parsedRequest } = context;
-    const { ipAddress } = parsedRequest;
+  const { prisma, config, limiters, parsedRequest } = context;
+  const { ipAddress } = parsedRequest ?? {};
 
-    if (config.rateLimiting.login.enabled && ipAddress) {
+  try {
+    if (config.rateLimiting.register.enabled && ipAddress) {
       const limiter = limiters.register as Ratelimit;
       const limit = await limitIpAttempts({ ipAddress, limiter });
       if (!limit.success) {
@@ -66,10 +66,11 @@ export async function registerUser(
         code: ErrorCodes.INVALID_INPUT,
       };
     }
+    const { username, email, password } = credentials.data;
 
     const existingUser = (await prisma.user.findFirst({
       where: {
-        OR: [{ username: input.username }, { email: input.email }],
+        OR: [{ username: username }, { email: email }],
       },
     })) as PrismaUser | null;
 
@@ -88,14 +89,14 @@ export async function registerUser(
     }
 
     const hashedPassword = await hashPassword({
-      password: credentials.data.password,
+      password: password,
       config,
     });
 
     const user = (await prisma.user.create({
       data: {
-        username: credentials.data.username,
-        email: credentials.data.email,
+        username: username,
+        email: email,
         password: hashedPassword,
         isEmailVerified: !config.accountSecurity.requireEmailVerification,
       },
@@ -134,8 +135,6 @@ export async function registerUser(
       data: { user: clientUser },
     };
   } catch (err) {
-    const { config } = context;
-
     config.logger.error("Unexpected error in registerUser", { error: err });
     return {
       success: false,

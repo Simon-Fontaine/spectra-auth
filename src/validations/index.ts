@@ -1,3 +1,2 @@
-export * from "./loginSchema";
-export * from "./registerSchema";
+export * from "./schemas";
 export * from "./templates";

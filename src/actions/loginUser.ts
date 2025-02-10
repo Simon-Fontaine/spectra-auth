@@ -16,7 +16,7 @@ import {
   createTime,
   limitIpAttempts,
 } from "../utils";
-import { loginSchema } from "../validations/loginSchema";
+import { loginSchema } from "../validations";
 import { createSession } from "./createSession";
 
 export async function loginUser(
@@ -31,10 +31,10 @@ export async function loginUser(
     password: string;
   },
 ): Promise<ActionResponse<{ user: ClientUser; session: ClientSession }>> {
-  try {
-    const { prisma, config, limiters, parsedRequest } = context;
-    const { ipAddress } = parsedRequest;
+  const { prisma, config, limiters, parsedRequest } = context;
+  const { ipAddress } = parsedRequest ?? {};
 
+  try {
     // Validate input using Zod schema.
     const credentials = loginSchema.safeParse(input);
     if (!credentials.success) {
@@ -50,6 +50,7 @@ export async function loginUser(
         code: ErrorCodes.INVALID_INPUT,
       };
     }
+    const { usernameOrEmail, password } = credentials.data;
 
     if (config.rateLimiting.login.enabled && ipAddress) {
       const limiter = limiters.login as Ratelimit;
@@ -70,10 +71,7 @@ export async function loginUser(
 
     const user = (await prisma.user.findFirst({
       where: {
-        OR: [
-          { email: credentials.data.usernameOrEmail },
-          { username: credentials.data.usernameOrEmail },
-        ],
+        OR: [{ email: usernameOrEmail }, { username: usernameOrEmail }],
       },
     })) as PrismaUser | null;
 
@@ -122,7 +120,7 @@ export async function loginUser(
 
     const passwordMatch = await verifyPassword({
       hash: user.password,
-      password: credentials.data.password,
+      password: password,
       config,
     });
     if (!passwordMatch) {
@@ -207,8 +205,6 @@ export async function loginUser(
       data: { user: clientUser, session: newSession.data.session },
     };
   } catch (err) {
-    const { config } = context;
-
     config.logger.error("Unexpected error in loginUser", { error: err });
     return {
       success: false,

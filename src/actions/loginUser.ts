@@ -76,16 +76,16 @@ export async function loginUser(
     })) as PrismaUser | null;
 
     if (!user) {
-      config.logger.securityEvent("USER_NOT_FOUND", {
+      config.logger.securityEvent("INVALID_CREDENTIALS", {
         route: "login",
         ipAddress,
         ...input,
       });
       return {
         success: false,
-        status: 404,
-        message: "User not found",
-        code: ErrorCodes.USER_NOT_FOUND,
+        status: 401,
+        message: "Invalid credentials",
+        code: ErrorCodes.INVALID_CREDENTIALS,
       };
     }
 

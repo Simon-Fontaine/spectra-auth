@@ -1,7 +1,7 @@
 import { type PrismaClient, VerificationType } from "@prisma/client";
 import type { Ratelimit } from "@upstash/ratelimit";
 import type { AegisAuthConfig } from "../config";
-import { sendPasswordResetEmail } from "../emails";
+import { sendVerificationEmail } from "../emails";
 import {
   type ActionResponse,
   ErrorCodes,
@@ -9,10 +9,10 @@ import {
   type PrismaUser,
 } from "../types";
 import { type ParsedRequestData, limitIpAttempts } from "../utils";
-import { initiatePasswordResetSchema } from "../validations";
+import { initiateEmailChangeSchema } from "../validations";
 import { createVerification } from "./createVerification";
 
-export async function initiatePasswordReset(
+export async function initiateEmailChange(
   context: {
     prisma: PrismaClient;
     config: Required<AegisAuthConfig>;
@@ -20,17 +20,18 @@ export async function initiatePasswordReset(
     parsedRequest: ParsedRequestData;
   },
   input: {
-    email: string;
+    userId: string;
+    newEmail: string;
   },
 ): Promise<ActionResponse> {
   const { prisma, config, limiters, parsedRequest } = context;
   const { ipAddress } = parsedRequest ?? {};
 
   try {
-    const validatedInput = initiatePasswordResetSchema.safeParse(input);
+    const validatedInput = initiateEmailChangeSchema.safeParse(input);
     if (!validatedInput.success) {
       config.logger.securityEvent("INVALID_INPUT", {
-        route: "initiatePasswordReset",
+        route: "initiateEmailChange",
         ipAddress,
       });
       return {
@@ -40,15 +41,15 @@ export async function initiatePasswordReset(
         code: ErrorCodes.INVALID_INPUT,
       };
     }
-    const { email } = validatedInput.data;
+    const { userId, newEmail } = validatedInput.data;
 
-    if (config.rateLimiting.initiatePasswordReset.enabled && ipAddress) {
-      const limiter = limiters.initiatePasswordReset as Ratelimit;
+    if (config.rateLimiting.initiateEmailChange.enabled && ipAddress) {
+      const limiter = limiters.initiateEmailChange as Ratelimit;
       const limit = await limitIpAttempts({ ipAddress, limiter });
 
       if (!limit.success) {
         config.logger.securityEvent("RATE_LIMIT_EXCEEDED", {
-          route: "initiatePasswordReset",
+          route: "initiateEmailChange",
           ipAddress,
         });
 
@@ -61,59 +62,56 @@ export async function initiatePasswordReset(
       }
     }
 
-    const existingUser = (await prisma.user.findUnique({
-      where: { email: email },
+    const existingUser = (await prisma.user.findFirst({
+      where: {
+        OR: [{ email: newEmail }, { pendingEmail: newEmail }],
+      },
     })) as PrismaUser | null;
 
-    // IMPORTANT:  Return success even if the user doesn't exist.  This prevents email enumeration.
-    if (!existingUser) {
-      config.logger.securityEvent("PASSWORD_RESET_INITIATED_FAILED", {
-        email: input.email,
-      });
+    if (existingUser) {
       return {
-        success: true,
-        status: 200,
-        message: "If that email exists, a reset link was sent.",
+        success: false,
+        status: 400,
+        message: "Email is already in use",
+        code: ErrorCodes.EMAIL_IN_USE,
       };
     }
 
+    await prisma.user.update({
+      where: { id: userId },
+      data: { pendingEmail: newEmail },
+    });
+
     const verification = await createVerification(context, {
-      userId: existingUser.id,
-      type: VerificationType.PASSWORD_RESET,
+      userId,
+      type: VerificationType.EMAIL_CHANGE,
     });
 
     if (!verification.success || !verification.data?.verification) {
-      config.logger.securityEvent("PASSWORD_RESET_INITIATED_FAILED", {
-        email: input.email,
-      });
       return {
         success: false,
         status: 500,
-        message: "Failed to create verification",
+        message: "Failed to create email change verification.",
         code: ErrorCodes.INTERNAL_SERVER_ERROR,
       };
     }
 
     const { token } = verification.data.verification;
-    await sendPasswordResetEmail({
-      toEmail: existingUser.email,
+    await sendVerificationEmail({
+      toEmail: newEmail,
       token,
-      config,
-    });
-
-    config.logger.securityEvent("PASSWORD_RESET_INITIATED", {
-      email: input.email,
+      config: context.config,
     });
 
     return {
       success: true,
       status: 200,
-      message: "If that email exists, a reset link was sent.",
+      message: "Verification email sent to your new email address.",
     };
   } catch (error) {
-    config.logger.error("Error initiating password reset", {
+    config.logger.error("Error initiating email change", {
       error,
-      email: input.email,
+      email: input.newEmail,
       ipAddress: parsedRequest?.ipAddress,
     });
     return {

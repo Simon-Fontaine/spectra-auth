@@ -122,7 +122,7 @@ export const configSchema = z.object({
         .positive()
         .default(createTime(15, "m").toSeconds()),
     }),
-    forgotPassword: z.object({
+    initiatePasswordReset: z.object({
       enabled: z.boolean().default(true),
       maxRequests: z.number().int().positive().default(3),
       windowSeconds: z
@@ -131,7 +131,25 @@ export const configSchema = z.object({
         .positive()
         .default(createTime(15, "m").toSeconds()),
     }),
-    passwordReset: z.object({
+    completePasswordReset: z.object({
+      enabled: z.boolean().default(true),
+      maxRequests: z.number().int().positive().default(3),
+      windowSeconds: z
+        .number()
+        .int()
+        .positive()
+        .default(createTime(15, "m").toSeconds()),
+    }),
+    initiateEmailChange: z.object({
+      enabled: z.boolean().default(true),
+      maxRequests: z.number().int().positive().default(3),
+      windowSeconds: z
+        .number()
+        .int()
+        .positive()
+        .default(createTime(15, "m").toSeconds()),
+    }),
+    completeEmailChange: z.object({
       enabled: z.boolean().default(true),
       maxRequests: z.number().int().positive().default(3),
       windowSeconds: z

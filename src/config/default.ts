@@ -56,12 +56,22 @@ export const defaultConfig = {
       maxRequests: 3,
       windowSeconds: createTime(15, "m").toSeconds(),
     },
-    forgotPassword: {
+    initiatePasswordReset: {
       enabled: true,
       maxRequests: 3,
       windowSeconds: createTime(15, "m").toSeconds(),
     },
-    passwordReset: {
+    completePasswordReset: {
+      enabled: true,
+      maxRequests: 3,
+      windowSeconds: createTime(15, "m").toSeconds(),
+    },
+    initiateEmailChange: {
+      enabled: true,
+      maxRequests: 3,
+      windowSeconds: createTime(15, "m").toSeconds(),
+    },
+    completeEmailChange: {
       enabled: true,
       maxRequests: 3,
       windowSeconds: createTime(15, "m").toSeconds(),

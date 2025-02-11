@@ -1,13 +1,17 @@
 import { type PrismaClient, VerificationType } from "@prisma/client";
 import type { Ratelimit } from "@upstash/ratelimit";
 import type { AegisAuthConfig } from "../config";
-import { hashPassword } from "../security";
-import { type ActionResponse, ErrorCodes, type Limiters } from "../types";
+import {
+  type ActionResponse,
+  ErrorCodes,
+  type Limiters,
+  type PrismaUser,
+} from "../types";
 import { type ParsedRequestData, limitIpAttempts } from "../utils";
-import { completePasswordResetSchema } from "../validations";
+import { completeEmailChangeSchema } from "../validations";
 import { useVerificationToken } from "./useVerificationToken";
 
-export async function completePasswordReset(
+export async function completeEmailChange(
   context: {
     prisma: PrismaClient;
     config: Required<AegisAuthConfig>;
@@ -16,18 +20,16 @@ export async function completePasswordReset(
   },
   input: {
     token: string;
-    newPassword: string;
   },
 ): Promise<ActionResponse> {
   const { prisma, config, limiters, parsedRequest } = context;
   const { ipAddress } = parsedRequest ?? {};
 
   try {
-    // Validate input
-    const validatedInput = completePasswordResetSchema.safeParse(input);
+    const validatedInput = completeEmailChangeSchema.safeParse(input);
     if (!validatedInput.success) {
       config.logger.securityEvent("INVALID_INPUT", {
-        route: "completePasswordReset",
+        route: "completeEmailChange",
         ipAddress,
       });
       return {
@@ -37,15 +39,15 @@ export async function completePasswordReset(
         code: ErrorCodes.INVALID_INPUT,
       };
     }
-    const { token, newPassword } = validatedInput.data;
+    const { token } = validatedInput.data;
 
-    if (config.rateLimiting.completePasswordReset.enabled && ipAddress) {
-      const limiter = limiters.completePasswordReset as Ratelimit;
+    if (config.rateLimiting.completeEmailChange.enabled && ipAddress) {
+      const limiter = limiters.completeEmailChange as Ratelimit;
       const limit = await limitIpAttempts({ ipAddress, limiter });
 
       if (!limit.success) {
         config.logger.securityEvent("RATE_LIMIT_EXCEEDED", {
-          route: "completePasswordReset",
+          route: "completeEmailChange",
           ipAddress,
         });
 
@@ -60,12 +62,12 @@ export async function completePasswordReset(
 
     const verification = await useVerificationToken(context, {
       token: token,
-      type: VerificationType.PASSWORD_RESET,
+      type: VerificationType.EMAIL_CHANGE,
     });
 
     if (!verification.success || !verification.data?.verification) {
       config.logger.securityEvent("INVALID_TOKEN", {
-        route: "completePasswordReset",
+        route: "completeEmailChange",
         ipAddress,
       });
       return {
@@ -79,37 +81,33 @@ export async function completePasswordReset(
     const {
       verification: { userId },
     } = verification.data;
-    const hashedPassword = await hashPassword({
-      password: newPassword,
-      config,
-    });
+    const user = (await prisma.user.findUnique({
+      where: { id: userId },
+    })) as PrismaUser | null;
+    if (!user || !user.pendingEmail) {
+      return {
+        success: false,
+        status: 400,
+        message: "No pending email change found.",
+        code: ErrorCodes.INVALID_INPUT,
+      };
+    }
 
-    await prisma.$transaction([
-      prisma.user.update({
-        where: { id: userId },
-        data: { password: hashedPassword },
-      }),
-      prisma.session.updateMany({
-        where: {
-          userId: userId,
-          isRevoked: false,
-        },
-        data: { isRevoked: true },
-      }),
-    ]);
-
-    config.logger.securityEvent("PASSWORD_RESET", {
-      ipAddress,
-      userId: userId,
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        email: user.pendingEmail,
+        pendingEmail: null,
+      },
     });
 
     return {
       success: true,
       status: 200,
-      message: "Password reset successfully.",
+      message: "Email change completed successfully.",
     };
   } catch (error) {
-    config.logger.error("Error completing password reset", {
+    config.logger.error("Error completing email change", {
       error,
       ipAddress: parsedRequest?.ipAddress,
     });

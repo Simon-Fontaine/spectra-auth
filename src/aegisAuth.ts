@@ -4,9 +4,11 @@ import { Redis } from "@upstash/redis";
 import _ from "lodash";
 import { ZodError } from "zod";
 import {
+  completeEmailChange as completeEmailChangeCore,
   completePasswordReset as completePasswordResetCore,
   createSession as createSessionCore,
   createVerification as createVerificationCore,
+  initiateEmailChange as initiateEmailChangeCore,
   initiatePasswordReset as initiatePasswordResetCore,
   loginUser as loginUserCore,
   logoutUser as logoutUserCore,
@@ -72,8 +74,10 @@ export class AegisAuth {
         "login",
         "register",
         "verifyEmail",
-        "forgotPassword",
-        "passwordReset",
+        "initiatePasswordReset",
+        "completePasswordReset",
+        "initiateEmailChange",
+        "completeEmailChange",
       ] as const;
 
       for (const route of routes) {
@@ -90,6 +94,18 @@ export class AegisAuth {
         }
       }
     }
+  }
+
+  async completeEmailChange(
+    request: {
+      headers: AuthHeaders;
+    },
+    input: Parameters<typeof completeEmailChangeCore>[1],
+  ) {
+    return completeEmailChangeCore(
+      this.createContextWithRequest(request),
+      input,
+    );
   }
 
   async completePasswordReset(
@@ -117,6 +133,18 @@ export class AegisAuth {
     input: Parameters<typeof createVerificationCore>[1],
   ) {
     return createVerificationCore(this.createContext(), input);
+  }
+
+  async initiateEmailChange(
+    request: {
+      headers: AuthHeaders;
+    },
+    input: Parameters<typeof initiateEmailChangeCore>[1],
+  ) {
+    return initiateEmailChangeCore(
+      this.createContextWithRequest(request),
+      input,
+    );
   }
 
   async initiatePasswordReset(

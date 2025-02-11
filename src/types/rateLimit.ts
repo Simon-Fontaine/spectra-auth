@@ -1,9 +1,11 @@
 import type { Ratelimit } from "@upstash/ratelimit";
 
-export type Limiters = {
+export interface Limiters {
   login?: Ratelimit;
   register?: Ratelimit;
   verifyEmail?: Ratelimit;
-  forgotPassword?: Ratelimit;
-  passwordReset?: Ratelimit;
-};
+  initiatePasswordReset?: Ratelimit;
+  completePasswordReset?: Ratelimit;
+  initiateEmailChange?: Ratelimit;
+  completeEmailChange?: Ratelimit;
+}

@@ -6,6 +6,10 @@ import {
   getUsernameSchema,
 } from "./templates";
 
+export const completeEmailChangeSchema = z.object({
+  token: z.string().min(1),
+});
+
 export const completePasswordResetSchema = z.object({
   token: z.string().min(1),
   newPassword: getPasswordSchema("Password"),
@@ -19,6 +23,11 @@ export const createVerificationSchema = z.object({
   userId: z.string().min(1),
   type: z.nativeEnum(VerificationType),
   tokenExpirySeconds: z.number().int().positive().optional(),
+});
+
+export const initiateEmailChangeSchema = z.object({
+  userId: z.string().min(1),
+  newEmail: getEmailSchema(),
 });
 
 export const initiatePasswordResetSchema = z.object({

@@ -1,9 +1,13 @@
 {
   "name": "aegis-auth",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "main": "dist/aegisAuth.js",
   "types": "dist/aegisAuth.d.ts",
-  "files": ["dist", "LICENSE", "README.md"],
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc",
     "test": "jest",

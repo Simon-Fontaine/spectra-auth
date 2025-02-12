@@ -6,7 +6,7 @@ export interface SendEmailOptions {
   to: string | string[];
   subject: string;
   html: string;
-  config: Required<AegisAuthConfig>;
+  config: AegisAuthConfig;
 }
 
 export async function sendEmail(options: SendEmailOptions) {

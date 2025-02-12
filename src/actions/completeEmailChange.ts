@@ -14,7 +14,7 @@ import { useVerificationToken } from "./useVerificationToken";
 export async function completeEmailChange(
   context: {
     prisma: PrismaClient;
-    config: Required<AegisAuthConfig>;
+    config: AegisAuthConfig;
     limiters: Limiters;
     parsedRequest: ParsedRequestData;
   },

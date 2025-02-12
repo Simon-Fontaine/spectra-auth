@@ -4,7 +4,7 @@ import { type SendEmailOptions, sendEmail } from "./sendEmail";
 interface PasswordResetEmailOptions {
   toEmail: string;
   token: string;
-  config: Required<AegisAuthConfig>;
+  config: AegisAuthConfig;
 }
 
 export async function sendPasswordResetEmail(
@@ -20,7 +20,7 @@ export async function sendPasswordResetEmail(
     <html>
       <body>
         <p>You requested a password reset. Click the link below to reset your password:</p>
-        <a href="${config.email.baseUrl}/reset-password?token=${token}">Reset Password</a>
+        <a href="${config.email?.baseUrl}/reset-password?token=${token}">Reset Password</a>
       </body>
     </html>
     `;

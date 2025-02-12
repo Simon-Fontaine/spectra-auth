@@ -4,7 +4,7 @@ import type { AegisAuthConfig } from "../config";
 export function createCsrfCookie({
   csrfToken,
   config,
-}: { csrfToken: string; config: Required<AegisAuthConfig> }): string {
+}: { csrfToken: string; config: AegisAuthConfig }): string {
   return serializeCookie(config.csrf.cookieName, csrfToken, {
     maxAge: config.csrf.maxAgeSeconds,
     secure: config.csrf.cookieSecure,
@@ -16,7 +16,7 @@ export function createCsrfCookie({
 
 export function clearCsrfCookie({
   config,
-}: { config: Required<AegisAuthConfig> }): string {
+}: { config: AegisAuthConfig }): string {
   return serializeCookie(config.csrf.cookieName, "", {
     maxAge: 0,
     secure: config.csrf.cookieSecure,
@@ -28,9 +28,7 @@ export function clearCsrfCookie({
 export function getCsrfToken({
   cookieHeader,
   config,
-}: { cookieHeader: string; config: Required<AegisAuthConfig> }):
-  | string
-  | undefined {
+}: { cookieHeader: string; config: AegisAuthConfig }): string | undefined {
   const csrfToken = parseCookie(cookieHeader)[config.csrf.cookieName];
   return csrfToken;
 }

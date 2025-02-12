@@ -1,8 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
 import { Ratelimit } from "@upstash/ratelimit";
-import { Redis } from "@upstash/redis";
-import _ from "lodash";
-import { ZodError } from "zod";
 import {
   completeEmailChange as completeEmailChangeCore,
   completePasswordReset as completePasswordResetCore,
@@ -19,15 +16,15 @@ import {
   validateAndRotateSession as validateAndRotateSessionCore,
   verifyEmail as verifyEmailCore,
 } from "./actions";
-import { type AegisAuthConfig, configSchema, defaultConfig } from "./config";
-import { ConfigurationError } from "./errors/config";
+import { type AegisAuthConfig, buildConfig } from "./config";
 import type { AuthHeaders, Limiters } from "./types";
 import { parseRequest } from "./utils";
 
 export class AegisAuth {
   private prisma: PrismaClient;
-  private config: Required<AegisAuthConfig>;
+  private config: AegisAuthConfig;
   private limiters: Limiters = {};
+
   private createContext() {
     return {
       prisma: this.prisma,
@@ -44,31 +41,12 @@ export class AegisAuth {
     };
   }
 
-  constructor(prisma: PrismaClient, userConfig?: AegisAuthConfig) {
+  constructor(prisma: PrismaClient, userConfig?: Partial<AegisAuthConfig>) {
     this.prisma = prisma;
-    const mergedConfig = _.defaultsDeep(userConfig, defaultConfig);
-    try {
-      configSchema.parse(mergedConfig);
-    } catch (error) {
-      if (error instanceof ZodError) {
-        throw new ConfigurationError(
-          error.errors
-            .map((e) => `${e.path.join(".")}: ${e.message}`)
-            .join("; "),
-        );
-      }
-      throw new ConfigurationError(
-        (error as Error).message ?? "Unknown configuration error",
-      );
-    }
-    this.config = mergedConfig as Required<AegisAuthConfig>;
+    this.config = buildConfig(userConfig);
 
-    // Initialize rate limiters ONCE
-    if (this.config.rateLimiting.enabled) {
-      const redis = new Redis({
-        url: this.config.rateLimiting.kvRestApiUrl,
-        token: this.config.rateLimiting.kvRestApiToken,
-      });
+    if (this.config.rateLimiting.enabled && this.config.rateLimiting.redis) {
+      const redis = this.config.rateLimiting.redis;
 
       const routes = [
         "login",

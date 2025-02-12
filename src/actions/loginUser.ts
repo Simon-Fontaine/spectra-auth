@@ -22,7 +22,7 @@ import { createSession } from "./createSession";
 export async function loginUser(
   context: {
     prisma: PrismaClient;
-    config: Required<AegisAuthConfig>;
+    config: AegisAuthConfig;
     limiters: Limiters;
     parsedRequest: ParsedRequestData;
   },

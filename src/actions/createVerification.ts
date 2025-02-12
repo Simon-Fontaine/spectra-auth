@@ -13,7 +13,7 @@ import { createVerificationSchema } from "../validations";
 export async function createVerification(
   context: {
     prisma: PrismaClient;
-    config: Required<AegisAuthConfig>;
+    config: AegisAuthConfig;
   },
   input: {
     userId: string;

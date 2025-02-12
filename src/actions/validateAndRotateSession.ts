@@ -15,7 +15,7 @@ import { revokeSession } from "./revokeSession";
 export async function validateAndRotateSession(
   context: {
     prisma: PrismaClient;
-    config: Required<AegisAuthConfig>;
+    config: AegisAuthConfig;
     parsedRequest: ParsedRequestData;
   },
   input: {

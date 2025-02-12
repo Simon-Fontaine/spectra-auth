@@ -12,7 +12,7 @@ import { createSessionSchema } from "../validations";
 export async function createSession(
   context: {
     prisma: PrismaClient;
-    config: Required<AegisAuthConfig>;
+    config: AegisAuthConfig;
     parsedRequest: ParsedRequestData;
   },
   input: {

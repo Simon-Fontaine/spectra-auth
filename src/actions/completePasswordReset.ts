@@ -10,7 +10,7 @@ import { useVerificationToken } from "./useVerificationToken";
 export async function completePasswordReset(
   context: {
     prisma: PrismaClient;
-    config: Required<AegisAuthConfig>;
+    config: AegisAuthConfig;
     limiters: Limiters;
     parsedRequest: ParsedRequestData;
   },

@@ -4,7 +4,7 @@ import { type SendEmailOptions, sendEmail } from "./sendEmail";
 interface VerificationEmailOptions {
   toEmail: string;
   token: string;
-  config: Required<AegisAuthConfig>;
+  config: AegisAuthConfig;
 }
 
 export async function sendVerificationEmail(options: VerificationEmailOptions) {
@@ -18,7 +18,7 @@ export async function sendVerificationEmail(options: VerificationEmailOptions) {
       <html>
         <body>
           <p>Please verify your email address by clicking the link below:</p>
-          <a href="${config.email.baseUrl}/verify-email?token=${token}">Verify Email</a>
+          <a href="${config.email?.baseUrl}/verify-email?token=${token}">Verify Email</a>
         </body>
       </html>
     `;

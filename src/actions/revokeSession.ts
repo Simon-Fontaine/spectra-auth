@@ -7,7 +7,7 @@ import { revokeSessionSchema } from "../validations";
 export async function revokeSession(
   context: {
     prisma: PrismaClient;
-    config: Required<AegisAuthConfig>;
+    config: AegisAuthConfig;
   },
   input: {
     sessionToken: string;

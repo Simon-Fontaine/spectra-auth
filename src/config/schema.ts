@@ -1,3 +1,4 @@
+import { Redis } from "@upstash/redis";
 import { z } from "zod";
 import { ConsoleLogger, createTime } from "../utils";
 
@@ -27,7 +28,6 @@ export const configSchema = z.object({
     })
     .default(new ConsoleLogger()),
 
-  // Auth Session
   session: z.object({
     cookieName: z.string().default("aegis.sessionToken"),
     maxAgeSeconds: z
@@ -57,7 +57,6 @@ export const configSchema = z.object({
       .default(createTime(1, "h").toSeconds()),
   }),
 
-  // CSRF Protection
   csrf: z.object({
     enabled: z.boolean().default(true),
     cookieName: z.string().default("aegis.csrfToken"),
@@ -79,7 +78,6 @@ export const configSchema = z.object({
     cookieHttpOnly: z.boolean().default(false),
   }),
 
-  // Verification
   verification: z.object({
     tokenLengthBytes: z.number().int().positive().default(32),
     tokenExpirySeconds: z
@@ -89,12 +87,9 @@ export const configSchema = z.object({
       .default(createTime(1, "h").toSeconds()),
   }),
 
-  // Auth Rate Limiting
   rateLimiting: z.object({
-    enabled: z.boolean().default(true),
-    kvRestApiUrl: z.string().optional(),
-    kvRestApiToken: z.string().optional(),
-    // Per route rate limits
+    enabled: z.boolean().default(false),
+    redis: z.instanceof(Redis).optional(),
     login: z.object({
       enabled: z.boolean().default(true),
       maxRequests: z.number().int().positive().default(5),
@@ -160,7 +155,6 @@ export const configSchema = z.object({
     }),
   }),
 
-  // Account Security
   accountSecurity: z.object({
     requireEmailVerification: z.boolean().default(true),
     maxFailedLogins: z.number().int().nonnegative().default(5),
@@ -177,7 +171,6 @@ export const configSchema = z.object({
     }),
   }),
 
-  // Email
   email: z
     .object({
       resendApiKey: z.string().optional(),
@@ -188,7 +181,7 @@ export const configSchema = z.object({
           verification: z
             .function()
             .args(z.object({ token: z.string(), toEmail: z.string() }))
-            .returns(z.string()) // Expect HTML string
+            .returns(z.string())
             .optional(),
           passwordReset: z
             .function()

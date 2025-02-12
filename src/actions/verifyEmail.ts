@@ -9,7 +9,7 @@ import { useVerificationToken } from "./useVerificationToken";
 export async function verifyEmail(
   context: {
     prisma: PrismaClient;
-    config: Required<AegisAuthConfig>;
+    config: AegisAuthConfig;
     limiters: Limiters;
     parsedRequest: ParsedRequestData;
   },

@@ -11,7 +11,7 @@ import { useVerificationTokenSchema } from "../validations";
 export async function useVerificationToken(
   context: {
     prisma: PrismaClient;
-    config: Required<AegisAuthConfig>;
+    config: AegisAuthConfig;
   },
   input: {
     token: string;

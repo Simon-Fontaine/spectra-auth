@@ -17,7 +17,7 @@ export function parseRequest(
   request: {
     headers: AuthHeaders;
   },
-  config: Required<AegisAuthConfig>,
+  config: AegisAuthConfig,
 ): ParsedRequestData {
   const getHeader = (key: string) => {
     if ("get" in request.headers && typeof request.headers.get === "function") {

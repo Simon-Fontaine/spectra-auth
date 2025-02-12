@@ -21,7 +21,7 @@ import { createVerification } from "./createVerification";
 export async function registerUser(
   context: {
     prisma: PrismaClient;
-    config: Required<AegisAuthConfig>;
+    config: AegisAuthConfig;
     limiters: Limiters;
     parsedRequest: ParsedRequestData;
   },

@@ -7,7 +7,7 @@ import { revokeSession } from "./revokeSession";
 export async function logoutUser(
   context: {
     prisma: PrismaClient;
-    config: Required<AegisAuthConfig>;
+    config: AegisAuthConfig;
   },
   input: {
     sessionToken: string;

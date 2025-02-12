@@ -29,7 +29,9 @@ export const configSchema = z.object({
     .default(new ConsoleLogger()),
 
   session: z.object({
-    cookieName: z.string().default("aegis.sessionToken"),
+    cookieName: z.string().default("aegis.session"),
+    cookieDomain: z.string().optional(),
+    cookiePath: z.string().default("/"),
     maxAgeSeconds: z
       .number()
       .int()
@@ -59,7 +61,9 @@ export const configSchema = z.object({
 
   csrf: z.object({
     enabled: z.boolean().default(true),
-    cookieName: z.string().default("aegis.csrfToken"),
+    cookieName: z.string().default("aegis.csrf"),
+    cookieDomain: z.string().optional(),
+    cookiePath: z.string().default("/"),
     maxAgeSeconds: z
       .number()
       .int()
@@ -75,7 +79,7 @@ export const configSchema = z.object({
       .default(process.env.CSRF_SECRET || "change-me"),
     cookieSecure: z.boolean().default(process.env.NODE_ENV === "production"),
     cookieSameSite: z.enum(["strict", "lax", "none"]).default("lax"),
-    cookieHttpOnly: z.boolean().default(false),
+    cookieHttpOnly: z.boolean().default(false), // must be accessible by client JS
   }),
 
   verification: z.object({
@@ -89,7 +93,8 @@ export const configSchema = z.object({
 
   rateLimiting: z.object({
     enabled: z.boolean().default(false),
-    redis: z.instanceof(Redis).optional(),
+    redis: z.instanceof(Redis).optional(), // required if rate limiting is enabled
+    keyPrefix: z.string().default("aegis:ratelimit"),
     login: z.object({
       enabled: z.boolean().default(true),
       maxRequests: z.number().int().positive().default(5),

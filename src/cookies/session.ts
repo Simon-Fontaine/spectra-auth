@@ -10,7 +10,8 @@ export function createSessionCookie({
     secure: config.session.cookieSecure,
     httpOnly: config.session.cookieHttpOnly,
     sameSite: config.session.cookieSameSite,
-    path: "/",
+    path: config.session.cookiePath,
+    domain: config.session.cookieDomain,
   });
 }
 

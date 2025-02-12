@@ -10,7 +10,8 @@ export function createCsrfCookie({
     secure: config.csrf.cookieSecure,
     httpOnly: config.csrf.cookieHttpOnly,
     sameSite: config.csrf.cookieSameSite,
-    path: "/",
+    path: config.csrf.cookiePath,
+    domain: config.csrf.cookieDomain,
   });
 }
 

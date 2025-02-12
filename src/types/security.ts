@@ -17,3 +17,12 @@ export type EncodingFormat =
   | "base64url"
   | "base64urlnopad"
   | "none";
+
+export interface PasswordPolicy {
+  minLength: number;
+  maxLength: number;
+  requireUppercase: boolean;
+  requireLowercase: boolean;
+  requireDigits: boolean;
+  requireSpecialChar: boolean;
+}

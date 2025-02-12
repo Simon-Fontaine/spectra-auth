@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { PasswordPolicy } from "../utils/passowrd";
+import type { PasswordPolicy } from "../types";
 
 // Enhanced validation messages with more descriptive language.
 const validationMessages = {

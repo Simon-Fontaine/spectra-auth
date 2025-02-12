@@ -24,7 +24,7 @@ export async function completePasswordReset(
 
   try {
     // Validate input
-    const validatedInput = completePasswordResetSchema.safeParse(input);
+    const validatedInput = completePasswordResetSchema(config).safeParse(input);
     if (!validatedInput.success) {
       config.logger.securityEvent("INVALID_INPUT", {
         route: "completePasswordReset",

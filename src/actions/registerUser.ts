@@ -52,7 +52,7 @@ export async function registerUser(
       }
     }
 
-    const credentials = registerSchema.safeParse(input);
+    const credentials = registerSchema(config).safeParse(input);
     if (!credentials.success) {
       config.logger.securityEvent("INVALID_INPUT", {
         route: "register",

@@ -174,6 +174,23 @@ export const configSchema = z.object({
       parallelization: z.number().int().positive().default(1),
       derivedKeyLength: z.number().int().positive().default(64),
     }),
+    passwordPolicy: z
+      .object({
+        minLength: z.number().int().min(1).default(8),
+        maxLength: z.number().int().min(1).default(32),
+        requireUppercase: z.boolean().default(true),
+        requireLowercase: z.boolean().default(true),
+        requireDigits: z.boolean().default(true),
+        requireSpecialChar: z.boolean().default(true),
+      })
+      .default({
+        minLength: 8,
+        maxLength: 32,
+        requireUppercase: true,
+        requireLowercase: true,
+        requireDigits: true,
+        requireSpecialChar: true,
+      }),
   }),
 
   email: z

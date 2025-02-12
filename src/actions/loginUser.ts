@@ -36,7 +36,7 @@ export async function loginUser(
 
   try {
     // Validate input using Zod schema.
-    const credentials = loginSchema.safeParse(input);
+    const credentials = loginSchema(config).safeParse(input);
     if (!credentials.success) {
       config.logger.securityEvent("INVALID_INPUT", {
         route: "login",

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { PasswordPolicy } from "../utils/passowrd";
 
 // Enhanced validation messages with more descriptive language.
 const validationMessages = {
@@ -22,6 +23,25 @@ const validationMessages = {
     match: "Passwords do not match.",
   },
 };
+
+// Regular expression builder for password complexity requirements.
+function buildPasswordRegex(policy: PasswordPolicy): RegExp {
+  let pattern = "^";
+  if (policy.requireLowercase) {
+    pattern += "(?=.*[a-z])";
+  }
+  if (policy.requireUppercase) {
+    pattern += "(?=.*[A-Z])";
+  }
+  if (policy.requireDigits) {
+    pattern += "(?=.*\\d)";
+  }
+  if (policy.requireSpecialChar) {
+    pattern += "(?=.*[\\W_])";
+  }
+  pattern += `.{${policy.minLength},${policy.maxLength}}$`;
+  return new RegExp(pattern);
+}
 
 // Reusable schema factory that automatically trims input and validates length/format.
 const createStringSchema = (options: {
@@ -57,16 +77,38 @@ const createStringSchema = (options: {
 };
 
 // Password schema that enforces a complexity requirement.
-// The regex below ensures at least one lowercase, one uppercase, one digit, and one special character.
-const passwordComplexityRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).+$/;
-export const getPasswordSchema = (type: "Password" | "ConfirmPassword") =>
-  createStringSchema({
-    field: type,
+export const getPasswordSchema = (
+  type: "Password" | "ConfirmPassword",
+  policy?: PasswordPolicy,
+) => {
+  // Default policy if none is provided.
+  const defaultPolicy: PasswordPolicy = {
     minLength: 8,
     maxLength: 32,
-    regex: passwordComplexityRegex,
-    regexMessage: validationMessages.format.password,
-  });
+    requireUppercase: true,
+    requireLowercase: true,
+    requireDigits: true,
+    requireSpecialChar: true,
+  };
+
+  const finalPolicy = policy || defaultPolicy;
+  const regex = buildPasswordRegex(finalPolicy);
+
+  return z
+    .string({
+      required_error: `${type} is required.`,
+    })
+    .min(finalPolicy.minLength, {
+      message: `${type} must be at least ${finalPolicy.minLength} characters long.`,
+    })
+    .max(finalPolicy.maxLength, {
+      message: `${type} must not exceed ${finalPolicy.maxLength} characters.`,
+    })
+    .regex(regex, {
+      message: `${type} does not meet the complexity requirements (must include uppercase, lowercase, digit, and special character).`,
+    })
+    .transform((val) => val.trim());
+};
 
 // Email schema: also validates that the string is a valid email.
 export const getEmailSchema = () =>

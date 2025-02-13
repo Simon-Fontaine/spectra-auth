@@ -41,7 +41,7 @@ export async function loginUser(
       config.logger.securityEvent("INVALID_INPUT", {
         route: "login",
         ipAddress,
-        ...input,
+        usernameOrEmail: input.usernameOrEmail,
       });
       return {
         success: false,
@@ -79,7 +79,7 @@ export async function loginUser(
       config.logger.securityEvent("INVALID_CREDENTIALS", {
         route: "login",
         ipAddress,
-        ...input,
+        usernameOrEmail,
       });
       return {
         success: false,

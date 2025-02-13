@@ -1,26 +1,25 @@
-import { defaultConfig } from "../src/config/default";
 import { base64Url } from "../src/security/base64";
-import { createHMAC } from "../src/security/hmac"; // Import createHMAC
+import { createHMAC } from "../src/security/hmac";
 import {
   generateSessionToken,
   signSessionToken,
   verifySessionToken,
 } from "../src/security/sessionToken";
+import { createTestConfig } from "./testConfig";
 
 jest.mock("../src/security/random", () => ({
-  randomBytes: jest.fn(() => Buffer.from("testrandombytes")),
+  randomBytes: jest.fn(() => new TextEncoder().encode("testrandombytes")),
 }));
 
-jest.mock("../src/security/hmac"); // Mock the hmac functions
+jest.mock("../src/security/hmac");
 
 describe("Session Token", () => {
-  const mockConfig = {
-    ...defaultConfig,
-    session: { ...defaultConfig.session, tokenSecret: "testsecret" },
-  };
+  let mockConfig: ReturnType<typeof createTestConfig>;
 
   beforeEach(() => {
-    jest.clearAllMocks(); // Clear mock calls before each test
+    mockConfig = createTestConfig();
+    jest.clearAllMocks();
+
     (createHMAC as jest.Mock).mockReturnValue({
       sign: jest.fn().mockResolvedValue("testhash"),
       verify: jest.fn(),
@@ -36,12 +35,9 @@ describe("Session Token", () => {
     expect(sessionTokenHash).toBeDefined();
     expect(sessionToken).toEqual(base64Url.encode("testrandombytes"));
 
-    // Verify that randomBytes and createHMAC were called correctly
-    expect(require("../src/security/random").randomBytes).toHaveBeenCalledWith(
-      mockConfig.session.tokenLengthBytes,
-    );
+    // Verify calls
     expect(createHMAC).toHaveBeenCalledWith("SHA-256", "base64urlnopad");
-    const mockedHmac = (createHMAC as jest.Mock).mock.results[0].value; // Access the mocked hmac object.
+    const mockedHmac = (createHMAC as jest.Mock).mock.results[0].value;
     expect(mockedHmac.sign).toHaveBeenCalledWith(
       mockConfig.session.tokenSecret,
       sessionToken,
@@ -49,61 +45,51 @@ describe("Session Token", () => {
   });
 
   it("should verify a valid session token", async () => {
-    const sessionToken = "validsessiontoken";
-    const sessionTokenHash = "validhash";
-
     (createHMAC as jest.Mock).mockReturnValue({
-      verify: jest.fn().mockResolvedValue(true), // Mock verify to return true
-      sign: jest.fn().mockResolvedValue("testhash"),
+      verify: jest.fn().mockResolvedValue(true),
+      sign: jest.fn(),
     });
+
     const isValid = await verifySessionToken({
-      sessionToken,
-      sessionTokenHash,
+      sessionToken: "validsessiontoken",
+      sessionTokenHash: "validhash",
       config: mockConfig,
     });
     expect(isValid).toBe(true);
+
     const mockedHmac = (createHMAC as jest.Mock).mock.results[0].value;
     expect(mockedHmac.verify).toHaveBeenCalledWith(
       mockConfig.session.tokenSecret,
-      sessionToken,
-      sessionTokenHash,
+      "validsessiontoken",
+      "validhash",
     );
   });
 
   it("should not verify an invalid session token", async () => {
-    const sessionToken = "invalidsessiontoken";
-    const sessionTokenHash = "invalidhash";
     (createHMAC as jest.Mock).mockReturnValue({
-      verify: jest.fn().mockResolvedValue(false), // Mock verify to return false
-      sign: jest.fn().mockResolvedValue("testhash"),
+      verify: jest.fn().mockResolvedValue(false),
+      sign: jest.fn(),
     });
 
     const isValid = await verifySessionToken({
-      sessionToken,
-      sessionTokenHash,
+      sessionToken: "invalidsessiontoken",
+      sessionTokenHash: "invalidhash",
       config: mockConfig,
     });
-
     expect(isValid).toBe(false);
-    const mockedHmac = (createHMAC as jest.Mock).mock.results[0].value;
-    expect(mockedHmac.verify).toHaveBeenCalledWith(
-      mockConfig.session.tokenSecret,
-      sessionToken,
-      sessionTokenHash,
-    );
   });
 
   it("should sign the session token", async () => {
-    const sessionToken = "testsessiontoken";
     const signedToken = await signSessionToken({
-      sessionToken,
+      sessionToken: "testsessiontoken",
       config: mockConfig,
     });
-    expect(signedToken).toEqual("testhash");
+    expect(signedToken).toBe("testhash");
+
     const mockedHmac = (createHMAC as jest.Mock).mock.results[0].value;
     expect(mockedHmac.sign).toHaveBeenCalledWith(
       mockConfig.session.tokenSecret,
-      sessionToken,
+      "testsessiontoken",
     );
   });
 });

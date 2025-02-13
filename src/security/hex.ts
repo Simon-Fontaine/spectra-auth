@@ -37,3 +37,14 @@ export const hex = {
     return new TextDecoder().decode(data);
   },
 };
+
+export function decodeHexToBytes(hexStr: string): Uint8Array {
+  if (hexStr.length % 2 !== 0) {
+    throw new Error("Invalid hex string");
+  }
+  const bytes = new Uint8Array(hexStr.length / 2);
+  for (let i = 0; i < hexStr.length; i += 2) {
+    bytes[i / 2] = Number.parseInt(hexStr.substring(i, i + 2), 16);
+  }
+  return bytes;
+}

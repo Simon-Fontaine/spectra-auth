@@ -7,6 +7,10 @@ import {
   getUsernameSchema,
 } from "./templates";
 
+export const banUserSchema = z.object({
+  userId: z.string().min(1),
+});
+
 export const completeEmailChangeSchema = z.object({
   token: z.string().min(1),
 });
@@ -68,6 +72,15 @@ export const revokeAllSessionsForUserSchema = z.object({
 
 export const revokeSessionSchema = z.object({
   sessionToken: z.string().min(1),
+});
+
+export const unbanUserSchema = z.object({
+  userId: z.string().min(1),
+});
+
+export const updateUserRolesSchema = z.object({
+  userId: z.string().min(1),
+  roles: z.array(z.string().min(1)),
 });
 
 export const useVerificationTokenSchema = z.object({

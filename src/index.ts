@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import { Ratelimit } from "@upstash/ratelimit";
 import {
+  banUser as banUserCore,
   completeEmailChange as completeEmailChangeCore,
   completePasswordReset as completePasswordResetCore,
   createSession as createSessionCore,
@@ -12,6 +13,8 @@ import {
   registerUser as registerUserCore,
   revokeAllSessionsForUser as revokeAllSessionsForUserCore,
   revokeSession as revokeSessionCore,
+  unbanUser as unbanUserCore,
+  updateUserRoles as updateUserRolesCore,
   useVerificationToken as useVerificationTokenCore,
   validateAndRotateSession as validateAndRotateSessionCore,
   verifyEmail as verifyEmailCore,
@@ -87,6 +90,13 @@ export class AegisAuth {
         }
       }
     }
+  }
+
+  /**
+   * Ban a user by ID.
+   */
+  async banUser(input: Parameters<typeof banUserCore>[1]) {
+    return banUserCore(this.createContext(), input);
   }
 
   /**
@@ -201,6 +211,20 @@ export class AegisAuth {
    */
   async revokeSession(input: Parameters<typeof revokeSessionCore>[1]) {
     return revokeSessionCore(this.createContext(), input);
+  }
+
+  /**
+   * Unban a user by ID.
+   */
+  async unbanUser(input: Parameters<typeof unbanUserCore>[1]) {
+    return unbanUserCore(this.createContext(), input);
+  }
+
+  /**
+   * Update a user's roles.
+   */
+  async updateUserRoles(input: Parameters<typeof updateUserRolesCore>[1]) {
+    return updateUserRolesCore(this.createContext(), input);
   }
 
   /**

@@ -2,7 +2,7 @@ import { scryptAsync } from "@noble/hashes/scrypt";
 import { getRandomValues } from "uncrypto";
 import type { AegisAuthConfig } from "../config";
 import { timingSafeEqual } from "./compare";
-import { hex } from "./hex";
+import { decodeHexToBytes, hex } from "./hex";
 
 async function generateKey({
   password,
@@ -37,5 +37,6 @@ export const verifyPassword = async ({
 }: { hash: string; password: string; config: AegisAuthConfig }) => {
   const [salt, key] = hash.split(":");
   const targetKey = await generateKey({ password, salt, config });
-  return timingSafeEqual(targetKey, new Uint8Array(Buffer.from(key, "hex")));
+  const keyBytes = decodeHexToBytes(key);
+  return timingSafeEqual(targetKey, keyBytes);
 };

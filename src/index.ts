@@ -93,6 +93,13 @@ export class AegisAuth {
   }
 
   /**
+   * Get the current configuration.
+   */
+  getConfig() {
+    return this.config;
+  }
+
+  /**
    * Ban a user by ID.
    */
   async banUser(input: Parameters<typeof banUserCore>[1]) {

@@ -68,7 +68,7 @@ export const configSchema = z.object({
       .number()
       .int()
       .positive()
-      .default(createTime(2, "h").toSeconds()),
+      .default(createTime(7, "d").toSeconds()),
     tokenLengthBytes: z.number().int().positive().default(32),
     tokenSecret: z
       .string()

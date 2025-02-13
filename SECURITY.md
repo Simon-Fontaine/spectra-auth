@@ -4,12 +4,12 @@ Aegis Auth is designed with security as a top priority. This document outlines t
 
 ## Reporting Vulnerabilities
 
-If you discover a security vulnerability in Aegis Auth, **please report it immediately**.  We take all security reports seriously and will work to address any issues as quickly as possible.
+If you discover a security vulnerability in Aegis Auth, **please report it immediately**. We take all security reports seriously and will work to address any issues as quickly as possible.
 
 **How to Report:**
 
-- **Email:**  [github@simonfontaine.com](mailto:github@simonfontaine.com)  (This is the preferred method for sensitive information.)
-- **GitHub Issues:** [https://github.com/Simon-Fontaine/aegis-auth/issues](https://github.com/Simon-Fontaine/aegis-auth/issues) (Use this for less critical vulnerabilities or if you prefer public disclosure after a fix.)
+- **Email:** [github@simonfontaine.com](mailto:github@simonfontaine.com) (Preferred for sensitive information.)
+- **GitHub Issues:** [https://github.com/Simon-Fontaine/aegis-auth/issues](https://github.com/Simon-Fontaine/aegis-auth/issues) (Use for less critical vulnerabilities or if you prefer public disclosure after a fix.)
 
 **When reporting, please include:**
 
@@ -27,71 +27,66 @@ Aegis Auth incorporates the following security practices:
 
 ### 1. Secrets Management
 
-- **Environment Variables:** All sensitive configuration options, such as `SESSION_TOKEN_SECRET`, `CSRF_SECRET`, `KV_REST_API_URL`, and `KV_REST_API_TOKEN`, *must* be stored in environment variables.  **Never hardcode secrets directly into your source code.**
-- **Secret Rotation:** We strongly recommend regularly rotating your secrets (e.g., every 90 days, or more frequently for highly sensitive applications). This minimizes the impact if a secret is ever compromised.
-- **Strong Secrets:** Use strong, randomly generated secrets.  You can generate suitable secrets using tools like `openssl`:
+- **Environment Variables:** All sensitive configuration options, such as `SESSION_TOKEN_SECRET`, `CSRF_SECRET`, `KV_REST_API_URL`, and `KV_REST_API_TOKEN`, *must* be stored in environment variables. **Never** hardcode secrets in source code.
+- **Secret Rotation:** Regularly rotate secrets (e.g., every 90 days or more frequently for highly sensitive applications) to limit the impact of a leaked secret.
+- **Strong Secrets:** Use strong, randomly generated secrets. For example:
 
-    ```bash
-    openssl rand -base64 32
-    ```
+  ```bash
+  openssl rand -base64 32
+  ```
 
 ### 2. Cryptography
 
-- **Password Hashing:** Aegis Auth uses the **scrypt** algorithm for password hashing, a memory-hard and computationally intensive algorithm designed to resist brute-force and rainbow table attacks.  Configurable parameters (cost factor, block size, parallelization) allow you to tune the security/performance trade-off.
-- **Session Tokens:** Session tokens are generated using a cryptographically secure random number generator (`uncrypto`).  The *entire* session token is treated as a secret.  Only the *hash* of the session token (using HMAC-SHA256) is stored in the database. This prevents attackers from using stolen database contents to impersonate users.
-- **CSRF Tokens:** CSRF tokens are also generated using a cryptographically secure random number generator and protected with HMAC-SHA256, using a separate secret from the session token secret.
-- **HMAC:**  HMAC (Hash-based Message Authentication Code) with SHA-256 is used to sign both session tokens and CSRF tokens. This ensures the integrity and authenticity of the tokens.
-- **Timing Safe Equal:** Compares hash using timingSafeEqual to prevent timing attacks.
+- **Password Hashing:** Uses the **scrypt** algorithm, which is memory-hard and helps resist brute force. All parameters are configurable.
+- **Session Tokens:** Generated via a cryptographically secure RNG (`uncrypto`). **Only** an HMAC-SHA256 hash of the token is stored in the DB, preventing stolen DB contents from impersonating users.
+- **CSRF Tokens:** Also generated securely and protected with HMAC-SHA256. Uses a separate secret from the session token.
+- **HMAC:** Ensures the integrity and authenticity of tokens.
+- **Timing Safe Equal:** Compares hashes using `timingSafeEqual` to mitigate timing attacks.
 
 ### 3. Session Management
 
-- **`httpOnly` Cookies:** Session cookies are set with the `httpOnly` flag, preventing client-side JavaScript from accessing them.  This is a crucial defense against Cross-Site Scripting (XSS) attacks.
-- **`Secure` Cookies:** Session and CSRF cookies are set with the `Secure` flag (in production) to ensure they are only transmitted over HTTPS.
-- **`SameSite` Cookies:**  The `SameSite` attribute is used (defaults to `Lax`) to help mitigate CSRF attacks.
-- **Session Expiration:** Sessions have a configurable maximum age (`maxAgeSeconds`).
-- **Session Rolling:** Aegis Auth supports session rolling, where a new session token is generated and the old one is revoked after a configurable interval (`rollingIntervalSeconds`).  This limits the window of opportunity for attackers who might have obtained a session token.
-- **Session Revocation:**  Sessions can be explicitly revoked (e.g., on logout).  All sessions for a user are automatically revoked during a password reset.
-- **Concurrent Session Limits:**  You can configure the maximum number of concurrent active sessions per user (`maxSessionsPerUser`).
+- **`httpOnly` Cookies:** Session cookies are sent with `httpOnly` to reduce XSS risk.
+- **`Secure` Cookies:** Session/CSRF cookies are `Secure` in production to ensure HTTPS-only.
+- **`SameSite` Cookies:** Default is `Lax`, mitigating CSRF attacks while allowing top-level navigation flows.
+- **Session Expiration:** Configurable max age (`maxAgeSeconds`).
+- **Session Rolling:** Automatic rotation after `rollingIntervalSeconds` to reduce the window for stolen tokens.
+- **Session Revocation:** Sessions can be revoked on logout or forced upon events like password reset.
+- **Concurrent Session Limits:** Set a maximum for how many sessions a user can have at once.
 
 ### 4. CSRF Protection
 
-- **`httpOnly` CSRF Cookies:** CSRF cookies are set with the `httpOnly` flag to prevent access from JavaScript.
-- **API Endpoint for CSRF Token:** Aegis Auth requires you to create an API endpoint (e.g., `/api/csrf-token`) that is protected by session authentication. Client-side applications *must* fetch the CSRF token from this endpoint and include it in the `X-CSRF-Token` header (or a custom header of your choice) with all state-changing requests (POST, PUT, DELETE, PATCH).
-- **Verification:** The server verifies the CSRF token on every state-changing request by comparing it to the hash stored in the user's session.
+- **`httpOnly` CSRF Cookies:** If you choose to set them `httpOnly`, be aware you need a separate endpoint to fetch the token via server code. By default, `cookieHttpOnly` is `false` so the client can read the token.
+- **API Endpoint for CSRF Token:** Required if you want your client to fetch the CSRF token from the server.
+- **Verification:** The server checks each state-changing request’s `X-CSRF-Token` header against what’s stored in the session.
 
 ### 5. Rate Limiting
 
-- **Upstash Redis:** Aegis Auth uses Upstash Redis for rate limiting.  This is a highly scalable and performant solution.
-- **Per-Route Limits:** Rate limiting is applied on a per-route basis, with configurable limits for:
-  - Login attempts
-  - Registration attempts
-  - Email verification requests
-  - Password reset initiation requests
-  - Password reset completion requests
-- **IP-Based:** Rate limiting is based on the client's IP address.
+- **Upstash Redis:** Used for IP-based rate limiting.
+- **Per-Route Limits:** Configurable for login, registration, email verification, password resets, etc.
+- **IP-Based:** By default, keyed on the client’s IP address.
 
 ### 6. Account Security
 
-- **Account Lockout:** After a configurable number of failed login attempts (`maxFailedLogins`), accounts are temporarily locked (`lockoutDurationSeconds`).
-- **Email Verification:** Aegis Auth supports optional email verification upon registration (`requireEmailVerification`).
+- **Account Lockout:** After a configurable number of failed logins, the account is locked for a set duration.
+- **Email Verification:** Optionally enforced on registration (`requireEmailVerification`).
 
 ### 7. Logging
 
-- **Security Events:** Key security events (e.g., failed logins, successful logins, password resets, session creation, session revocation, rate limit violations, invalid tokens) are logged using a configurable logger.  By default, a `ConsoleLogger` is used, but you can provide your own logger.
-- **Audit Trails:**  You should monitor these logs for suspicious activity and maintain them for auditing purposes.
+- **Security Events:** Logs critical security-related events (e.g., failed logins, session creation, revocation).
+- **Audit Trails:** Monitor these for suspicious activity. Store logs securely for auditing.
 
 ### 8. Input Validation
 
-- **Zod:**  Aegis Auth uses the Zod library for input validation.  This helps prevent common vulnerabilities like SQL injection and Cross-Site Scripting (XSS) by ensuring that user-provided data conforms to expected formats.
-- **Password Complexity:** The password is validated to prevent the user to use a weak password.
+- **Zod:** Used to validate all user inputs. Helps prevent injection attacks by ensuring data matches expected formats.
+- **Password Complexity:** Enforced by default with uppercase, lowercase, digits, and special chars.
 
-## Best Practices
+## Additional Best Practices
 
-- **Keep Secrets Secret:** Never commit secrets to your code repository. Use environment variables.
+- **Keep Secrets Secret:** Never commit secrets. Use environment variables.
 - **HTTPS:** Always use HTTPS in production.
-- **Monitor Logs:** Regularly review your application logs for any signs of suspicious activity.
-- **Keep Dependencies Updated:** Regularly update Aegis Auth and all other dependencies to benefit from the latest security patches.
-- **Test Thoroughly:**  Implement comprehensive unit and integration tests to ensure the security features of Aegis Auth are working as expected.
-- **Use additional security layers:** Even if Aegis Auth is secured, you should add extra security layers, like a WAF, to prevent attacks.
+- **Monitor Logs:** Regularly review logs for anomalies.
+- **Keep Dependencies Updated:** Stay current to benefit from security patches.
+- **Test Thoroughly:** Unit, integration, and e2e tests are recommended.  
+- **Restrict Role-Based Actions:** If you have admin-only actions (like `banUser` or `unbanUser`), ensure your application checks user roles (not handled automatically by Aegis Auth).
 
-By following these security practices and guidelines, you can significantly enhance the security of your application and protect your users' data.
+By following these security measures and guidelines, you can significantly enhance the security of your application and protect your users’ data.

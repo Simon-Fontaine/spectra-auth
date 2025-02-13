@@ -1,20 +1,21 @@
 # Aegis Auth
 
-Aegis Auth is a secure, feature-rich authentication library for Next.js and Node.js applications. It provides everything you need to handle user authentication and session management—including user registration, login/logout, email verification, password resets, rate limiting, and CSRF protection—all while following best security practices.
+Aegis Auth is a secure, feature-rich authentication library for Next.js and Node.js applications. It provides everything you need to handle user authentication and session management—including user registration, login/logout, email verification, password resets, rate limiting, **role management**, and CSRF protection—all while following best security practices.
 
 > **Note:** Aegis Auth uses [Prisma](https://www.prisma.io/) for database interactions, [Upstash Redis](https://upstash.com/) for rate limiting, and [Resend](https://resend.com/) for email delivery.
 
 ## Features
 
-- **User Registration:** Secure sign-up with input validation and duplicate user prevention.
-- **User Login & Logout:** Create and revoke sessions with rate limiting and account lockout support.
-- **Session Management:** Create, validate, rotate, and revoke user sessions (with rolling sessions support).
-- **Password Reset:** Initiate and complete password resets using secure verification tokens.
-- **Email Verification:** Verify user emails during registration or upon request using customizable email templates.
-- **Rate Limiting:** Protect endpoints against abuse by limiting the number of requests per IP using Upstash Redis.
-- **CSRF Protection:** Generate and verify CSRF tokens to secure state-changing requests.
-- **Secure Password Hashing:** Utilizes the scrypt algorithm for password hashing.
-- **Flexible Configuration:** Customize every aspect of Aegis Auth via environment variables or by passing a configuration object.
+- **User Registration**: Secure sign-up with input validation and duplicate user prevention.
+- **User Login & Logout**: Create and revoke sessions with rate limiting and account lockout support.
+- **Session Management**: Create, validate, rotate, and revoke user sessions (with rolling sessions support).
+- **Password Reset**: Initiate and complete password resets using secure verification tokens.
+- **Email Verification**: Verify user emails during registration or upon request using customizable email templates.
+- **Rate Limiting**: Protect endpoints against abuse by limiting the number of requests per IP using Upstash Redis.
+- **CSRF Protection**: Generate and verify CSRF tokens to secure state-changing requests.
+- **Role Management**: Assign and update user roles (`updateUserRoles`) and ban/unban users for added security.
+- **Secure Password Hashing**: Utilizes the scrypt algorithm for password hashing.
+- **Flexible Configuration**: Customize every aspect of Aegis Auth via environment variables or by passing a configuration object.
 
 ## Installation
 
@@ -33,10 +34,10 @@ pnpm add aegis-auth
 Before using Aegis Auth, ensure you have the following set up:
 
 - **Node.js** (v14 or higher)
-- **Database Connection:** Configure your database (PostgreSQL is supported) via the `DATABASE_URL` environment variable.
-- **Upstash Redis:** For rate limiting, provide `KV_REST_API_URL` and `KV_REST_API_TOKEN` in your environment.
-- **Resend API:** For email notifications, set the `RESEND_API_KEY` environment variable.
-- **Environment Variables:** See the [.env.example](.env.example) file for required and optional settings.
+- **Database Connection**: Configure your database (PostgreSQL is supported) via the `DATABASE_URL` environment variable.
+- **Upstash Redis**: For rate limiting, provide `KV_REST_API_URL` and `KV_REST_API_TOKEN` in your environment.
+- **Resend API**: For email notifications, set the `RESEND_API_KEY` environment variable.
+- **Environment Variables**: See the [.env.example](.env.example) file for required and optional settings.
 
 ## Configuration
 
@@ -80,8 +81,6 @@ For a full list of configuration options, refer to the [configuration schema](./
 ## Usage
 
 ### Initializing Aegis Auth
-
-To begin using Aegis Auth, import it along with your Prisma client and instantiate the class:
 
 ```typescript
 import { PrismaClient } from "@prisma/client";
@@ -134,17 +133,13 @@ if (loginResult.success) {
 
 ### Managing Sessions
 
-Aegis Auth provides methods to handle sessions automatically:
-
-- **Session Creation:** Performed during login.
-- **Session Validation & Rotation:** Use `validateAndRotateSession` to verify and refresh sessions.
-- **Logout:** Revoke the current session.
+- **Session Creation**: Performed during login.
+- **Session Validation & Rotation**: Use `validateAndRotateSession` to verify and refresh sessions.
+- **Logout**: Revoke the current session.
 
 ```typescript
 // Example: Log out a user
-const logoutResult = await auth.logoutUser({
-  sessionToken: "user_session_token",
-});
+const logoutResult = await auth.logoutUser({ sessionToken: "user_session_token" });
 
 if (logoutResult.success) {
   console.log("User logged out successfully");
@@ -201,6 +196,52 @@ if (verificationResult.success) {
   console.error("Email verification failed:", verificationResult.message);
 }
 ```
+
+### Role Management & Banning
+
+#### Update User Roles
+
+```typescript
+// Example: Assign or update user roles
+const updateRolesResult = await auth.updateUserRoles({
+  userId: "some_user_id",
+  roles: ["admin", "moderator"],
+});
+
+if (updateRolesResult.success) {
+  console.log("Roles updated successfully");
+} else {
+  console.error("Failed to update roles:", updateRolesResult.message);
+}
+```
+
+#### Ban a User
+
+```typescript
+// Example: Ban a user
+const banResult = await auth.banUser({ userId: "some_user_id" });
+
+if (banResult.success) {
+  console.log("User banned successfully");
+} else {
+  console.error("Ban error:", banResult.message);
+}
+```
+
+#### Unban a User
+
+```typescript
+// Example: Unban a user
+const unbanResult = await auth.unbanUser({ userId: "some_user_id" });
+
+if (unbanResult.success) {
+  console.log("User unbanned successfully");
+} else {
+  console.error("Unban error:", unbanResult.message);
+}
+```
+
+These actions are **not** automatically restricted to administrators. In your application, you should implement your own checks (e.g., only call `banUser` if the current user is an admin).
 
 ## Testing
 

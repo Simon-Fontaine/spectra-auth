@@ -27,10 +27,10 @@ model User {
   // Additional fields optional
   avatarUrl           String?
   displayName         String?
-  roles               String[]
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
+  userRoles     UserRoles[]
   sessions      Session[]
   verifications Verification[]
 
@@ -78,4 +78,25 @@ model Verification {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("verifications")
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  permissions String[] // e.g. ["CAN_BAN_USER", "CAN_EDIT_ARTICLES"]
+
+  userRoles UserRoles[]
+}
+
+model UserRoles {
+  id     String @id @default(uuid())
+  userId String
+  roleId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@index([userId])
+  @@index([roleId])
 }

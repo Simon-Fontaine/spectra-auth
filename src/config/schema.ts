@@ -37,6 +37,11 @@ export const configSchema = z.object({
       .int()
       .positive()
       .default(createTime(7, "d").toSeconds()),
+    maxAbsoluteLifetimeSeconds: z
+      .number()
+      .int()
+      .positive()
+      .default(createTime(30, "d").toSeconds()),
     tokenLengthBytes: z.number().int().positive().default(64),
     tokenSecret: z
       .string()

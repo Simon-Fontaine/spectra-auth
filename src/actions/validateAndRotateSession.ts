@@ -88,6 +88,26 @@ export async function validateAndRotateSession(
     }
 
     const now = new Date();
+    const absoluteLifetimeExceeded =
+      config.session.maxAbsoluteLifetimeSeconds > 0 &&
+      now.getTime() - session.createdAt.getTime() >
+        config.session.maxAbsoluteLifetimeSeconds * 1000;
+
+    if (absoluteLifetimeExceeded) {
+      await revokeSession(context, { sessionToken });
+
+      config.logger.securityEvent("SESSION_EXPIRED", {
+        sessionId: session.id,
+      });
+
+      return {
+        success: false,
+        status: 401,
+        message: "Session expired (max lifetime exceeded)",
+        code: ErrorCodes.SESSION_REVOKED,
+      };
+    }
+
     const timeSinceLastUpdate = now.getTime() - session.updatedAt.getTime();
     const shouldRotate =
       config.session.rollingIntervalSeconds > 0 &&

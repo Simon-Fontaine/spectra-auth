@@ -35,7 +35,7 @@ export class AegisAuth {
   /**
    * Create the global context used by action functions.
    */
-  private createContext() {
+  public createContext() {
     return {
       prisma: this.prisma,
       config: this.config,
@@ -47,7 +47,7 @@ export class AegisAuth {
    * Create a context that also parses the incoming request headers.
    * @param request - The request containing authentication headers.
    */
-  private createContextWithRequest(request: { headers: AuthHeaders }) {
+  public createContextWithRequest(request: { headers: AuthHeaders }) {
     return {
       ...this.createContext(),
       parsedRequest: parseRequest(request, this.config),

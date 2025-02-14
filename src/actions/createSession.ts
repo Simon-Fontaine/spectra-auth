@@ -1,20 +1,15 @@
-import type { PrismaClient } from "@prisma/client";
-import type { AegisAuthConfig } from "../config";
 import { generateCsrfToken, generateSessionToken } from "../security";
-import { type ActionResponse, type ClientSession, ErrorCodes } from "../types";
 import {
-  type ParsedRequestData,
-  clientSafeSession,
-  createTime,
-} from "../utils";
+  type ActionResponse,
+  type ClientSession,
+  type CoreContext,
+  ErrorCodes,
+} from "../types";
+import { clientSafeSession, createTime } from "../utils";
 import { createSessionSchema } from "../validations";
 
 export async function createSession(
-  context: {
-    prisma: PrismaClient;
-    config: AegisAuthConfig;
-    parsedRequest: ParsedRequestData;
-  },
+  context: CoreContext,
   input: {
     userId: string;
   },

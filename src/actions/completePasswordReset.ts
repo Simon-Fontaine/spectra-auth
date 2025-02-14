@@ -1,19 +1,13 @@
-import { type PrismaClient, VerificationType } from "@prisma/client";
+import { VerificationType } from "@prisma/client";
 import type { Ratelimit } from "@upstash/ratelimit";
-import type { AegisAuthConfig } from "../config";
 import { hashPassword } from "../security";
-import { type ActionResponse, ErrorCodes, type Limiters } from "../types";
-import { type ParsedRequestData, limitIpAttempts } from "../utils";
+import { type ActionResponse, type CoreContext, ErrorCodes } from "../types";
+import { limitIpAttempts } from "../utils";
 import { completePasswordResetSchema } from "../validations";
 import { useVerificationToken } from "./useVerificationToken";
 
 export async function completePasswordReset(
-  context: {
-    prisma: PrismaClient;
-    config: AegisAuthConfig;
-    limiters: Limiters;
-    parsedRequest: ParsedRequestData;
-  },
+  context: CoreContext,
   input: {
     token: string;
     newPassword: string;

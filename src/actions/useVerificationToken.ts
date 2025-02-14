@@ -1,7 +1,6 @@
-import type { PrismaClient } from "@prisma/client";
-import type { AegisAuthConfig } from "../config";
 import {
   type ActionResponse,
+  type CoreContext,
   ErrorCodes,
   type PrismaVerification,
   type VerificationType,
@@ -9,10 +8,7 @@ import {
 import { useVerificationTokenSchema } from "../validations";
 
 export async function useVerificationToken(
-  context: {
-    prisma: PrismaClient;
-    config: AegisAuthConfig;
-  },
+  context: CoreContext,
   input: {
     token: string;
     type: VerificationType;

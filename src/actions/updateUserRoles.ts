@@ -1,13 +1,8 @@
-import type { PrismaClient } from "@prisma/client";
-import type { AegisAuthConfig } from "../config";
-import { type ActionResponse, ErrorCodes } from "../types";
+import { type ActionResponse, type CoreContext, ErrorCodes } from "../types";
 import { updateUserRolesSchema } from "../validations";
 
 export async function updateUserRoles(
-  context: {
-    prisma: PrismaClient;
-    config: AegisAuthConfig;
-  },
+  context: CoreContext,
   input: {
     userId: string;
     roles: string[];

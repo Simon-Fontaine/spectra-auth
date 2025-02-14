@@ -1,23 +1,17 @@
-import type { PrismaClient } from "@prisma/client";
-import type { AegisAuthConfig } from "../config";
 import { signSessionToken, verifySessionToken } from "../security";
 import {
   type ActionResponse,
   type ClientSession,
+  type CoreContext,
   ErrorCodes,
   type PrismaSession,
 } from "../types";
-import type { ParsedRequestData } from "../utils";
 import { validateAndRotateSessionSchema } from "../validations";
 import { createSession } from "./createSession";
 import { revokeSession } from "./revokeSession";
 
 export async function validateAndRotateSession(
-  context: {
-    prisma: PrismaClient;
-    config: AegisAuthConfig;
-    parsedRequest: ParsedRequestData;
-  },
+  context: CoreContext,
   input: {
     sessionToken: string;
   },

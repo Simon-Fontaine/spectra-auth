@@ -1,30 +1,20 @@
-import { type PrismaClient, VerificationType } from "@prisma/client";
+import { VerificationType } from "@prisma/client";
 import type { Ratelimit } from "@upstash/ratelimit";
-import type { AegisAuthConfig } from "../config";
 import { sendVerificationEmail } from "../emails";
 import { hashPassword } from "../security";
 import {
   type ActionResponse,
   type ClientUser,
+  type CoreContext,
   ErrorCodes,
-  type Limiters,
   type PrismaUser,
 } from "../types";
-import {
-  type ParsedRequestData,
-  clientSafeUser,
-  limitIpAttempts,
-} from "../utils";
+import { clientSafeUser, limitIpAttempts } from "../utils";
 import { registerSchema } from "../validations";
 import { createVerification } from "./createVerification";
 
 export async function registerUser(
-  context: {
-    prisma: PrismaClient;
-    config: AegisAuthConfig;
-    limiters: Limiters;
-    parsedRequest: ParsedRequestData;
-  },
+  context: CoreContext,
   input: {
     username: string;
     email: string;

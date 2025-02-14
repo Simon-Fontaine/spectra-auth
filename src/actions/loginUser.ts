@@ -1,31 +1,19 @@
-import type { PrismaClient } from "@prisma/client";
 import type { Ratelimit } from "@upstash/ratelimit";
-import type { AegisAuthConfig } from "../config";
 import { verifyPassword } from "../security";
 import {
   type ActionResponse,
   type ClientSession,
   type ClientUser,
+  type CoreContext,
   ErrorCodes,
-  type Limiters,
   type PrismaUser,
 } from "../types";
-import {
-  type ParsedRequestData,
-  clientSafeUser,
-  createTime,
-  limitIpAttempts,
-} from "../utils";
+import { clientSafeUser, createTime, limitIpAttempts } from "../utils";
 import { loginSchema } from "../validations";
 import { createSession } from "./createSession";
 
 export async function loginUser(
-  context: {
-    prisma: PrismaClient;
-    config: AegisAuthConfig;
-    limiters: Limiters;
-    parsedRequest: ParsedRequestData;
-  },
+  context: CoreContext,
   input: {
     usernameOrEmail: string;
     password: string;

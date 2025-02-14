@@ -1,23 +1,17 @@
-import { type PrismaClient, VerificationType } from "@prisma/client";
+import { VerificationType } from "@prisma/client";
 import type { Ratelimit } from "@upstash/ratelimit";
-import type { AegisAuthConfig } from "../config";
 import {
   type ActionResponse,
+  type CoreContext,
   ErrorCodes,
-  type Limiters,
   type PrismaUser,
 } from "../types";
-import { type ParsedRequestData, limitIpAttempts } from "../utils";
+import { limitIpAttempts } from "../utils";
 import { completeEmailChangeSchema } from "../validations";
 import { useVerificationToken } from "./useVerificationToken";
 
 export async function completeEmailChange(
-  context: {
-    prisma: PrismaClient;
-    config: AegisAuthConfig;
-    limiters: Limiters;
-    parsedRequest: ParsedRequestData;
-  },
+  context: CoreContext,
   input: {
     token: string;
   },

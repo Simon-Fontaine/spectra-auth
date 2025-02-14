@@ -1,10 +1,13 @@
-import type { PrismaClient } from "@prisma/client";
-import type { AegisAuthConfig } from "../config";
-import { type ActionResponse, ErrorCodes, type PrismaUser } from "../types";
+import {
+  type ActionResponse,
+  type CoreContext,
+  ErrorCodes,
+  type PrismaUser,
+} from "../types";
 import { unbanUserSchema } from "../validations";
 
 export async function unbanUser(
-  context: { prisma: PrismaClient; config: AegisAuthConfig },
+  context: CoreContext,
   input: { userId: string },
 ): Promise<ActionResponse> {
   const { prisma, config } = context;

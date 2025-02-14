@@ -1,14 +1,10 @@
-import type { PrismaClient } from "@prisma/client";
-import type { AegisAuthConfig } from "../config";
+import type { CoreContext } from "../types";
 import { ErrorCodes } from "../types/errorCodes";
 import type { ActionResponse } from "../types/returns";
 import { revokeAllSessionsForUserSchema } from "../validations";
 
 export async function revokeAllSessionsForUser(
-  context: {
-    prisma: PrismaClient;
-    config: AegisAuthConfig;
-  },
+  context: CoreContext,
   input: {
     userId: string;
   },

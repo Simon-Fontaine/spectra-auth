@@ -20,7 +20,7 @@ import {
   verifyEmail as verifyEmailCore,
 } from "./actions";
 import { type AegisAuthConfig, buildConfig } from "./config";
-import type { AuthHeaders, Limiters } from "./types";
+import type { AuthHeaders, CoreContext, Limiters } from "./types";
 import { parseRequest } from "./utils";
 
 /**
@@ -32,10 +32,8 @@ export class AegisAuth {
   private config: AegisAuthConfig;
   private limiters: Limiters = {};
 
-  /**
-   * Create the global context used by action functions.
-   */
-  public createContext() {
+  /** Creates a bare-bones context (no request). */
+  private createBaseContext(): CoreContext {
     return {
       prisma: this.prisma,
       config: this.config,
@@ -47,10 +45,11 @@ export class AegisAuth {
    * Create a context that also parses the incoming request headers.
    * @param request - The request containing authentication headers.
    */
-  public createContextWithRequest(request: { headers: AuthHeaders }) {
+  private createContextWithRequest(request: {
+    headers: AuthHeaders;
+  }): CoreContext {
     return {
-      ...this.createContext(),
-      rawRequest: request,
+      ...this.createBaseContext(),
       parsedRequest: parseRequest(request, this.config),
     };
   }
@@ -104,7 +103,7 @@ export class AegisAuth {
    * Ban a user by ID.
    */
   async banUser(input: Parameters<typeof banUserCore>[1]) {
-    return banUserCore(this.createContext(), input);
+    return banUserCore(this.createBaseContext(), input);
   }
 
   /**
@@ -149,7 +148,7 @@ export class AegisAuth {
   async createVerification(
     input: Parameters<typeof createVerificationCore>[1],
   ) {
-    return createVerificationCore(this.createContext(), input);
+    return createVerificationCore(this.createBaseContext(), input);
   }
 
   /**
@@ -192,7 +191,7 @@ export class AegisAuth {
    * Log out the current session.
    */
   async logoutUser(input: Parameters<typeof logoutUserCore>[1]) {
-    return logoutUserCore(this.createContext(), input);
+    return logoutUserCore(this.createBaseContext(), input);
   }
 
   /**
@@ -211,28 +210,28 @@ export class AegisAuth {
   async revokeAllSessionsForUser(
     input: Parameters<typeof revokeAllSessionsForUserCore>[1],
   ) {
-    return revokeAllSessionsForUserCore(this.createContext(), input);
+    return revokeAllSessionsForUserCore(this.createBaseContext(), input);
   }
 
   /**
    * Revoke a specific session.
    */
   async revokeSession(input: Parameters<typeof revokeSessionCore>[1]) {
-    return revokeSessionCore(this.createContext(), input);
+    return revokeSessionCore(this.createBaseContext(), input);
   }
 
   /**
    * Unban a user by ID.
    */
   async unbanUser(input: Parameters<typeof unbanUserCore>[1]) {
-    return unbanUserCore(this.createContext(), input);
+    return unbanUserCore(this.createBaseContext(), input);
   }
 
   /**
    * Update a user's roles.
    */
   async updateUserRoles(input: Parameters<typeof updateUserRolesCore>[1]) {
-    return updateUserRolesCore(this.createContext(), input);
+    return updateUserRolesCore(this.createBaseContext(), input);
   }
 
   /**
@@ -241,7 +240,7 @@ export class AegisAuth {
   async useVerificationToken(
     input: Parameters<typeof useVerificationTokenCore>[1],
   ) {
-    return useVerificationTokenCore(this.createContext(), input);
+    return useVerificationTokenCore(this.createBaseContext(), input);
   }
 
   /**

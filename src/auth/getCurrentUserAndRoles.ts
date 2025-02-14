@@ -1,17 +1,15 @@
-import type { PrismaClient } from "@prisma/client";
 import { validateAndRotateSession } from "../actions";
-import type { AegisAuthConfig } from "../config";
 import { createCsrfCookie, createSessionCookie } from "../cookies";
 import { verifyCsrfToken } from "../security";
-import type { ActionResponse, ClientSession, PrismaUser } from "../types";
-import type { ParsedRequestData } from "../utils";
+import type {
+  ActionResponse,
+  ClientSession,
+  CoreContext,
+  PrismaUser,
+} from "../types";
 
 export async function getCurrentUserAndRolesCore(
-  context: {
-    prisma: PrismaClient;
-    config: AegisAuthConfig;
-    parsedRequest: ParsedRequestData;
-  },
+  context: CoreContext,
   options: {
     csrfCheck?: boolean;
     alwaysSetCookie?: boolean;
@@ -24,9 +22,10 @@ export async function getCurrentUserAndRolesCore(
   }>
 > {
   const { prisma, config, parsedRequest } = context;
+  const { sessionToken, csrfToken, rawRequest } = parsedRequest ?? {};
 
   try {
-    if (!parsedRequest.sessionToken) {
+    if (!sessionToken) {
       return {
         success: false,
         status: 401,
@@ -35,7 +34,7 @@ export async function getCurrentUserAndRolesCore(
     }
 
     const sessionResult = await validateAndRotateSession(context, {
-      sessionToken: parsedRequest.sessionToken,
+      sessionToken,
     });
 
     if (!sessionResult.success || !sessionResult.data?.session) {
@@ -65,11 +64,11 @@ export async function getCurrentUserAndRolesCore(
     // 3. CSRF check if desired
     if (options?.csrfCheck) {
       const method = (
-        parsedRequest.rawRequest?.headers.get?.("method") || "POST"
+        rawRequest?.headers.get?.("method") || "POST"
       ).toUpperCase();
       // or however you want to pass the request method
       if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
-        const csrfTokenFromRequest = parsedRequest.csrfToken;
+        const csrfTokenFromRequest = csrfToken;
         if (!csrfTokenFromRequest) {
           return {
             success: false,

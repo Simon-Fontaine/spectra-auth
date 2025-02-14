@@ -1,14 +1,9 @@
-import type { PrismaClient } from "@prisma/client";
-import type { AegisAuthConfig } from "../config";
-import { type ActionResponse, ErrorCodes } from "../types";
+import { type ActionResponse, type CoreContext, ErrorCodes } from "../types";
 import { logoutUserSchema } from "../validations";
 import { revokeSession } from "./revokeSession";
 
 export async function logoutUser(
-  context: {
-    prisma: PrismaClient;
-    config: AegisAuthConfig;
-  },
+  context: CoreContext,
   input: {
     sessionToken: string;
   },

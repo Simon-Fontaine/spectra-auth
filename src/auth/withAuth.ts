@@ -1,12 +1,11 @@
 import type { PrismaClient } from "@prisma/client";
-import { validateAndRotateSession } from "./actions";
-import type { AegisAuthConfig } from "./config";
-import { createCsrfCookie } from "./cookies/csrf";
-import { createSessionCookie } from "./cookies/session";
-import type { AegisAuth } from "./index";
-import { verifyCsrfToken } from "./security/csrfToken";
-import type { AuthHeaders } from "./types";
-import { userHasPermission } from "./utils/permissions";
+import { validateAndRotateSession } from "../actions";
+import type { AegisAuthConfig } from "../config";
+import { createCsrfCookie, createSessionCookie } from "../cookies";
+import type { AegisAuth } from "../index";
+import { verifyCsrfToken } from "../security";
+import type { AuthHeaders } from "../types";
+import { userHasPermission } from "../utils";
 
 /** Context available to user’s handler. */
 export interface AuthContext {

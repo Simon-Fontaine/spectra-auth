@@ -1,6 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 import type { AegisAuthConfig } from "../config";
-import { type ActionResponse, ErrorCodes, type PrismaUser } from "../types";
+import { type ActionResponse, ErrorCodes } from "../types";
 import { updateUserRolesSchema } from "../validations";
 
 export async function updateUserRoles(
@@ -30,9 +30,9 @@ export async function updateUserRoles(
     }
     const { userId, roles } = validatedInput.data;
 
-    const user = (await prisma.user.findUnique({
+    const user = await prisma.user.findUnique({
       where: { id: userId },
-    })) as PrismaUser | null;
+    });
     if (!user) {
       config.logger.securityEvent("USER_NOT_FOUND", {
         route: "updateUserRoles",
@@ -46,11 +46,28 @@ export async function updateUserRoles(
       };
     }
 
-    await prisma.user.update({
-      where: { id: userId },
-      data: {
-        roles,
-      },
+    await prisma.$transaction(async (tx) => {
+      await tx.userRoles.deleteMany({
+        where: { userId },
+      });
+
+      for (const roleName of roles) {
+        const role = await tx.role.upsert({
+          where: { name: roleName },
+          update: {},
+          create: {
+            name: roleName,
+            permissions: [],
+          },
+        });
+
+        await tx.userRoles.create({
+          data: {
+            userId,
+            roleId: role.id,
+          },
+        });
+      }
     });
 
     config.logger.securityEvent("USER_ROLES_UPDATED", {

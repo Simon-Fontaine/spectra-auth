@@ -50,6 +50,7 @@ export class AegisAuth {
   public createContextWithRequest(request: { headers: AuthHeaders }) {
     return {
       ...this.createContext(),
+      rawRequest: request,
       parsedRequest: parseRequest(request, this.config),
     };
   }

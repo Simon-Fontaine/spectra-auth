@@ -4,6 +4,7 @@ import { getCsrfToken, getSessionToken } from "../cookies";
 import type { AuthHeaders } from "../types";
 
 export interface ParsedRequestData {
+  rawRequest?: { headers: AuthHeaders };
   sessionToken?: string;
   csrfToken?: string;
   userAgent?: string;

@@ -10,10 +10,8 @@ export interface PrismaUser {
   isBanned: boolean;
   failedLoginAttempts: number;
   lockedUntil: Date | null;
-  // Additional fields optional
   avatarUrl: string | null;
   displayName: string | null;
-  roles: string[];
   createdAt: Date;
   updatedAt: Date;
 }

@@ -17,8 +17,10 @@ export async function updateUserRoles(
 
   try {
     const validatedInput = updateUserRolesSchema.safeParse(input);
-    config.logger.securityEvent("INVALID_INPUT", { route: "updateUserRoles" });
     if (!validatedInput.success) {
+      config.logger.securityEvent("INVALID_INPUT", {
+        route: "updateUserRoles",
+      });
       return {
         success: false,
         status: 400,

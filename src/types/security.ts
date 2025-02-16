@@ -23,6 +23,6 @@ export interface PasswordPolicy {
   maxLength: number;
   requireUppercase: boolean;
   requireLowercase: boolean;
-  requireDigits: boolean;
-  requireSpecialChar: boolean;
+  requireNumber: boolean;
+  requireSymbol: boolean;
 }

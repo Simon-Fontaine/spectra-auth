@@ -52,7 +52,9 @@ export async function validateSession(
     const isExpired = now > expiresAt;
     const isMaxLifetime =
       session.createdAt <
-      new Date(now.getTime() - config.security.session.maxLifetime * 1000);
+      new Date(
+        now.getTime() - config.security.session.maxLifetimeSeconds * 1000,
+      );
 
     if (isExpired || isMaxLifetime) {
       await prisma.session.update({

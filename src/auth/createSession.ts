@@ -43,8 +43,8 @@ export async function createSession(
     });
 
     if (
-      config.auth.maxSessionsPerUser > 0 &&
-      activeSessions >= config.auth.maxSessionsPerUser
+      config.auth.session.maxSessionsPerUser > 0 &&
+      activeSessions >= config.auth.session.maxSessionsPerUser
     ) {
       return {
         success: false,

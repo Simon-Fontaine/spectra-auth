@@ -23,7 +23,8 @@ export async function validateAndRotateSession(
     const now = new Date();
     const timeSinceLastRefresh = now.getTime() - session.updatedAt.getTime();
     const shouldRefresh =
-      timeSinceLastRefresh > config.security.session.refreshInterval * 1000;
+      timeSinceLastRefresh >
+      config.security.session.refreshIntervalSeconds * 1000;
 
     if (!shouldRefresh) {
       return isValidSession;

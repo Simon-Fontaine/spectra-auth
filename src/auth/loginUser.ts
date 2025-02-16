@@ -117,8 +117,11 @@ export async function loginUser(
 
     if (!passwordValid) {
       const failedAttempts = user.failedLoginAttempts + 1;
-      const maxAttempts = config.auth.maxFailedAttempts;
-      const lockDuration = createTime(config.auth.lockoutDuration, "ms");
+      const maxAttempts = config.auth.login.maxFailedAttempts;
+      const lockDuration = createTime(
+        config.auth.login.lockoutDurationSeconds,
+        "ms",
+      );
 
       if (failedAttempts >= maxAttempts) {
         await prisma.user.update({
@@ -152,7 +155,10 @@ export async function loginUser(
       };
     }
 
-    if (!user.isEmailVerified && config.auth.requireEmailVerification) {
+    if (
+      !user.isEmailVerified &&
+      config.auth.registration.requireEmailVerification
+    ) {
       return {
         success: false,
         status: 403,

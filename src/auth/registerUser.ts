@@ -30,6 +30,16 @@ export async function registerUser(
   const { ipAddress } = parsedRequest ?? {};
 
   try {
+    if (!config.auth.registration.enabled) {
+      return {
+        success: false,
+        status: 400,
+        message: "User registration is disabled",
+        code: ErrorCodes.REGISTRATION_DISABLED,
+        data: null,
+      };
+    }
+
     const validatedInput = schema(config.auth.password.rules).safeParse(
       options,
     );
@@ -92,11 +102,11 @@ export async function registerUser(
         username,
         email,
         password: hashedPassword,
-        isEmailVerified: !config.auth.requireEmailVerification,
+        isEmailVerified: !config.auth.registration.requireEmailVerification,
       },
     })) as PrismaUser;
 
-    if (config.auth.requireEmailVerification) {
+    if (config.auth.registration.requireEmailVerification) {
       // Send verification email
     }
 

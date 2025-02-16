@@ -195,6 +195,28 @@ const protectionSchema = z.object({
             .default(createTime(15, "m").toSeconds()),
         })
         .default({}),
+      initiateAccountDeletion: z
+        .object({
+          enabled: z.boolean().default(true),
+          maxAttempts: z.number().int().positive().default(3),
+          window: z
+            .number()
+            .int()
+            .positive()
+            .default(createTime(15, "m").toSeconds()),
+        })
+        .default({}),
+      completeAccountDeletion: z
+        .object({
+          enabled: z.boolean().default(true),
+          maxAttempts: z.number().int().positive().default(3),
+          window: z
+            .number()
+            .int()
+            .positive()
+            .default(createTime(15, "m").toSeconds()),
+        })
+        .default({}),
     }),
   }),
 });

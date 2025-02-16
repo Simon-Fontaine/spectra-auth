@@ -49,7 +49,7 @@ export async function completeEmailChangeCore(
     ) {
       const limiter = endpoints.completeEmailChange;
       if (!limiter) {
-        logger?.error("completeEmailChange rateLimiter not initialized", {
+        logger?.error("completeEmailChangeCore rateLimiter not initialized", {
           ip: ipAddress,
         });
         return {
@@ -63,7 +63,7 @@ export async function completeEmailChangeCore(
 
       const limit = await limitIpAddress(ipAddress, limiter);
       if (!limit.success) {
-        logger?.warn("completeEmailChange rate limit exceeded", {
+        logger?.warn("completeEmailChangeCore rate limit exceeded", {
           ip: ipAddress,
         });
         return {

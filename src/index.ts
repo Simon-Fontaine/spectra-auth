@@ -1,11 +1,13 @@
 import type { PrismaClient } from "@prisma/client";
 import { Ratelimit } from "@upstash/ratelimit";
 import {
+  completeAccountDeletionCore,
   completeEmailChangeCore,
   completePasswordResetCore,
   createSessionCore,
   createVerificationCore,
   getSessionCore,
+  initiateAccountDeletionCore,
   initiateEmailChangeCore,
   initiatePasswordResetCore,
   loginUserCore,
@@ -72,6 +74,14 @@ export class AegisAuth {
     return this.config;
   }
 
+  async completeAccountDeletion(
+    headers: Headers,
+    options: Parameters<typeof completeAccountDeletionCore>[1],
+  ) {
+    const ctx = await this.createContext(headers);
+    return completeAccountDeletionCore(ctx, options);
+  }
+
   async completeEmailChange(
     headers: Headers,
     options: Parameters<typeof completeEmailChangeCore>[1],
@@ -110,6 +120,11 @@ export class AegisAuth {
   ) {
     const ctx = await this.createContext(headers);
     return getSessionCore(ctx, options);
+  }
+
+  async initiateAccountDeletion(headers: Headers) {
+    const ctx = await this.createContext(headers);
+    return initiateAccountDeletionCore(ctx);
   }
 
   async initiateEmailChange(

@@ -8,6 +8,8 @@ export interface Endpoints {
   completePasswordReset?: Ratelimit;
   initiateEmailChange?: Ratelimit;
   completeEmailChange?: Ratelimit;
+  initiateAccountDeletion?: Ratelimit;
+  completeAccountDeletion?: Ratelimit;
 }
 
 export const defaultEndpoints = [
@@ -18,4 +20,6 @@ export const defaultEndpoints = [
   "completePasswordReset",
   "initiateEmailChange",
   "completeEmailChange",
+  "initiateAccountDeletion",
+  "completeAccountDeletion",
 ] as const;

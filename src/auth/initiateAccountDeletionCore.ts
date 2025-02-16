@@ -1,4 +1,3 @@
-import { z } from "zod";
 import { signSessionToken } from "../security";
 import {
   type ActionResponse,
@@ -8,53 +7,32 @@ import {
   type PrismaUser,
 } from "../types";
 import { limitIpAddress } from "../utils";
-import { getEmailSchema } from "../validations";
 import { createVerificationCore } from "./createVerificationCore";
 
-const schema = z.object({
-  newEmail: getEmailSchema(),
-});
-
-export async function initiateEmailChangeCore(
+export async function initiateAccountDeletionCore(
   ctx: CoreContext,
-  options: {
-    newEmail: string;
-  },
 ): Promise<ActionResponse> {
   const { parsedRequest, prisma, config, endpoints } = ctx;
   const { logger } = config;
   const { ipAddress, sessionToken } = parsedRequest ?? {};
 
-  logger?.info("initiateEmailChangeCore called", {
+  logger?.info("initiateAccountDeletionCore called", {
     ip: ipAddress,
-    newEmail: options.newEmail,
   });
 
   try {
-    const validatedInput = schema.safeParse(options);
-    if (!validatedInput.success) {
-      logger?.warn("initiateEmailChangeCore invalid input", {
-        errors: validatedInput.error.errors,
-      });
-      return {
-        success: false,
-        status: 400,
-        message: "Invalid input provided",
-        code: ErrorCodes.INVALID_INPUT,
-        data: null,
-      };
-    }
-    const { newEmail } = validatedInput.data;
-
     if (
-      config.protection.rateLimit.endpoints.initiateEmailChange.enabled &&
+      config.protection.rateLimit.endpoints.initiateAccountDeletion.enabled &&
       ipAddress
     ) {
-      const limiter = endpoints.initiateEmailChange;
+      const limiter = endpoints.initiateAccountDeletion;
       if (!limiter) {
-        logger?.error("initiateEmailChangeCore rateLimiter not initialized", {
-          ip: ipAddress,
-        });
+        logger?.error(
+          "initiateAccountDeletionCore rateLimiter not initialized",
+          {
+            ip: ipAddress,
+          },
+        );
         return {
           success: false,
           status: 500,
@@ -66,7 +44,7 @@ export async function initiateEmailChangeCore(
 
       const limit = await limitIpAddress(ipAddress, limiter);
       if (!limit.success) {
-        logger?.warn("initiateEmailChangeCore rate limit exceeded", {
+        logger?.warn("initiateAccountDeletionCore rate limit exceeded", {
           ip: ipAddress,
         });
         return {
@@ -80,7 +58,7 @@ export async function initiateEmailChangeCore(
     }
 
     if (!sessionToken) {
-      logger?.warn("initiateEmailChangeCore no session token", {
+      logger?.warn("initiateAccountDeletionCore no session token", {
         ip: ipAddress,
       });
       return {
@@ -97,7 +75,7 @@ export async function initiateEmailChangeCore(
     })) as PrismaSession | null;
 
     if (!session || session.isRevoked) {
-      logger?.warn("initiateEmailChangeCore invalid or revoked session", {
+      logger?.warn("initiateAccountDeletionCore invalid or revoked session", {
         ip: ipAddress,
       });
       return {
@@ -107,7 +85,6 @@ export async function initiateEmailChangeCore(
         code: ErrorCodes.SESSION_INVALID,
       };
     }
-
     const userId = session.userId;
 
     const user = (await prisma.user.findUnique({
@@ -115,9 +92,9 @@ export async function initiateEmailChangeCore(
     })) as PrismaUser | null;
 
     if (!user) {
-      logger?.warn("initiateEmailChangeCore user not found", {
+      logger?.warn("initiateAccountDeletionCore user not found", {
         userId,
-        newEmail,
+        ip: ipAddress,
       });
       return {
         success: false,
@@ -128,61 +105,23 @@ export async function initiateEmailChangeCore(
       };
     }
 
-    if (user.email.toLowerCase() === newEmail.toLowerCase()) {
-      logger?.warn("initiateEmailChangeCore new email same as current", {
-        userId,
-        newEmail,
-      });
-      return {
-        success: false,
-        status: 400,
-        message: "New email cannot be the same as current email",
-        code: ErrorCodes.EMAIL_INVALID,
-        data: null,
-      };
-    }
-
-    const emailInUse = await prisma.user.findUnique({
-      where: { email: newEmail },
-    });
-
-    if (emailInUse) {
-      logger?.warn("initiateEmailChangeCore new email in use", {
-        userId,
-        newEmail,
-      });
-      return {
-        success: false,
-        status: 409,
-        message: "Email already in use",
-        code: ErrorCodes.REGISTRATION_EMAIL_EXISTS,
-        data: null,
-      };
-    }
-
-    await prisma.user.update({
-      where: { id: userId },
-      data: { pendingEmail: newEmail },
-    });
-
     const verificationRequest = await createVerificationCore(ctx, {
       userId,
-      type: "INITIATE_EMAIL_CHANGE",
+      type: "INITIATE_ACCOUNT_DELETION",
     });
 
     if (
       !verificationRequest.success ||
       !verificationRequest.data?.verification
     ) {
-      logger?.error("initiateEmailChangeCore createVerification error", {
+      logger?.error("initiateAccountDeletionCore createVerification error", {
         userId,
-        newEmail,
       });
       return {
         success: false,
         status: 500,
         message:
-          "An unexpected error occurred while initiating the email change",
+          "An unexpected error occurred while initiating account deletion",
         code: ErrorCodes.INTERNAL_ERROR,
         data: null,
       };
@@ -190,9 +129,9 @@ export async function initiateEmailChangeCore(
 
     const { token } = verificationRequest.data.verification;
     // TODO: Send email with token
-    console.log("Email change token:", token);
+    console.log("Account deletion token:", token);
 
-    logger?.info("initiateEmailChangeCore success", {
+    logger?.info("initiateAccountDeletionCore success", {
       userId,
       ip: ipAddress,
     });
@@ -200,20 +139,20 @@ export async function initiateEmailChangeCore(
     return {
       success: true,
       status: 200,
-      message: "Email change initiated. Please confirm via verification token.",
+      message:
+        "Account deletion initiated. Please confirm via verification token.",
       data: null,
     };
   } catch (error) {
-    logger?.error("initiateEmailChangeCore error", {
+    logger?.error("initiateAccountDeletionCore error", {
       error: error instanceof Error ? error.message : String(error),
-      newEmail: options.newEmail,
       ip: ipAddress,
     });
 
     return {
       success: false,
       status: 500,
-      message: "An unexpected error occurred while initiating email change",
+      message: "An unexpected error occurred while initiating account deletion",
       code: ErrorCodes.INTERNAL_ERROR,
       data: null,
     };

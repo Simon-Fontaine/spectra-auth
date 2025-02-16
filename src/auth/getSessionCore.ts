@@ -7,10 +7,10 @@ import {
   type PrismaUser,
 } from "../types";
 import { transformUser } from "../utils";
-import { validateAndRotateSession } from "./validateAndRotateSession";
-import { validateSession } from "./validateSession";
+import { validateAndRotateSessionCore } from "./validateAndRotateSessionCore";
+import { validateSessionCore } from "./validateSessionCore";
 
-export async function getSession(
+export async function getSessionCore(
   ctx: CoreContext,
   options?: { disableRefresh?: boolean },
 ): Promise<
@@ -40,9 +40,9 @@ export async function getSession(
     let sessionResult: ActionResponse<{ session?: ClientSession }> | undefined;
 
     if (options?.disableRefresh) {
-      sessionResult = await validateSession(ctx);
+      sessionResult = await validateSessionCore(ctx);
     } else {
-      sessionResult = await validateAndRotateSession(ctx);
+      sessionResult = await validateAndRotateSessionCore(ctx);
     }
 
     if (!sessionResult.success || !sessionResult.data?.session) {

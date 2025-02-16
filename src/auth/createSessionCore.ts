@@ -13,7 +13,7 @@ const schema = z.object({
   userId: z.string().min(1),
 });
 
-export async function createSession(
+export async function createSessionCore(
   ctx: CoreContext,
   options: { userId: string },
 ): Promise<ActionResponse<{ session?: ClientSession }>> {

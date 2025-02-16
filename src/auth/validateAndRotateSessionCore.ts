@@ -4,10 +4,10 @@ import {
   type CoreContext,
   ErrorCodes,
 } from "../types";
-import { createSession } from "./createSession";
-import { validateSession } from "./validateSession";
+import { createSessionCore } from "./createSessionCore";
+import { validateSessionCore } from "./validateSessionCore";
 
-export async function validateAndRotateSession(
+export async function validateAndRotateSessionCore(
   ctx: CoreContext,
 ): Promise<ActionResponse<{ session?: ClientSession }>> {
   const { prisma, config } = ctx;
@@ -16,7 +16,7 @@ export async function validateAndRotateSession(
   logger?.info("validateAndRotateSession called", {});
 
   try {
-    const isValidSession = await validateSession(ctx);
+    const isValidSession = await validateSessionCore(ctx);
     if (!isValidSession.success || !isValidSession.data?.session) {
       logger?.warn("validateAndRotateSession session invalid", {
         reason: isValidSession.message,
@@ -39,7 +39,7 @@ export async function validateAndRotateSession(
     }
 
     // create new session
-    const newSessionRequest = await createSession(ctx, {
+    const newSessionRequest = await createSessionCore(ctx, {
       userId: session.userId,
     });
 

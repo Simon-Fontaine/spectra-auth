@@ -15,7 +15,7 @@ import {
   getPasswordSchema,
   getUsernameSchema,
 } from "../validations";
-import { createSession } from "./createSession";
+import { createSessionCore } from "./createSessionCore";
 
 const schema = (policy?: PasswordPolicy) =>
   z.object({
@@ -23,7 +23,7 @@ const schema = (policy?: PasswordPolicy) =>
     password: getPasswordSchema("Password", policy),
   });
 
-export async function loginUser(
+export async function loginUserCore(
   ctx: CoreContext,
   options: { usernameOrEmail: string; password: string },
 ): Promise<ActionResponse<{ user?: ClientUser; session?: ClientSession }>> {
@@ -219,7 +219,7 @@ export async function loginUser(
       data: { failedLoginAttempts: 0, lockedUntil: null },
     });
 
-    const sessionRequest = await createSession(ctx, { userId: user.id });
+    const sessionRequest = await createSessionCore(ctx, { userId: user.id });
     if (!sessionRequest.success || !sessionRequest.data?.session) {
       logger?.error("loginUser session creation failed", {
         userId: user.id,

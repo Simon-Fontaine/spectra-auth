@@ -14,6 +14,7 @@ import {
   getPasswordSchema,
   getUsernameSchema,
 } from "../validations";
+import { createVerificationCore } from "./createVerificationCore";
 
 const schema = (policy?: PasswordPolicy) =>
   z.object({
@@ -22,7 +23,7 @@ const schema = (policy?: PasswordPolicy) =>
     password: getPasswordSchema("Password", policy),
   });
 
-export async function registerUser(
+export async function registerUserCore(
   ctx: CoreContext,
   options: { username: string; email: string; password: string },
 ): Promise<ActionResponse<{ user?: ClientUser }>> {
@@ -125,7 +126,32 @@ export async function registerUser(
     logger?.info("registerUser success", { userId: user.id, ip: ipAddress });
 
     if (config.auth.registration.requireEmailVerification) {
-      logger?.info("sendVerificationEmail", { userId: user.id });
+      const verificationRequest = await createVerificationCore(ctx, {
+        userId: user.id,
+        type: "CONFIRM_EMAIL_AFTER_REGISTER",
+      });
+
+      if (
+        !verificationRequest.success ||
+        !verificationRequest.data?.verification
+      ) {
+        logger?.error("registerUser verification error", {
+          userId: user.id,
+          ip: ipAddress,
+        });
+
+        return {
+          success: false,
+          status: 500,
+          message: "An unexpected error occurred while registering the user",
+          code: ErrorCodes.INTERNAL_ERROR,
+          data: null,
+        };
+      }
+
+      const { token } = verificationRequest.data.verification;
+      // TODO: Send email with token
+      console.log("Email confirmation token:", token);
     }
 
     return {

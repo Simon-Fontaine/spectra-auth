@@ -6,7 +6,9 @@ import {
   type PrismaSession,
 } from "../types";
 
-export async function logoutUser(ctx: CoreContext): Promise<ActionResponse> {
+export async function logoutUserCore(
+  ctx: CoreContext,
+): Promise<ActionResponse> {
   const { parsedRequest, prisma, config } = ctx;
   const { logger } = config;
   const { sessionToken, ipAddress } = parsedRequest || {};

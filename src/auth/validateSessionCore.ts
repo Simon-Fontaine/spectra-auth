@@ -8,7 +8,7 @@ import {
 } from "../types";
 import { transformSession } from "../utils";
 
-export async function validateSession(
+export async function validateSessionCore(
   ctx: CoreContext,
 ): Promise<ActionResponse<{ session?: ClientSession }>> {
   const { parsedRequest, prisma, config } = ctx;

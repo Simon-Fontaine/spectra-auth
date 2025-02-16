@@ -1,5 +1,18 @@
 import type { PrismaClient } from "@prisma/client";
 import { Ratelimit } from "@upstash/ratelimit";
+import {
+  completePasswordResetCore,
+  createSessionCore,
+  createVerificationCore,
+  getSessionCore,
+  initiatePasswordResetCore,
+  loginUserCore,
+  logoutUserCore,
+  registerUserCore,
+  useVerificationTokenCore,
+  validateAndRotateSessionCore,
+  validateSessionCore,
+} from "./auth";
 import { buildConfig } from "./config";
 import {
   type AegisAuthConfig,
@@ -54,5 +67,84 @@ export class AegisAuth {
 
   getConfig() {
     return this.config;
+  }
+
+  async completePasswordReset(
+    headers: Headers,
+    options: Parameters<typeof completePasswordResetCore>[1],
+  ) {
+    const ctx = await this.createContext(headers);
+    return completePasswordResetCore(ctx, options);
+  }
+
+  async createSession(
+    headers: Headers,
+    options: Parameters<typeof createSessionCore>[1],
+  ) {
+    const ctx = await this.createContext(headers);
+    return createSessionCore(ctx, options);
+  }
+
+  async createVerification(
+    headers: Headers,
+    options: Parameters<typeof createVerificationCore>[1],
+  ) {
+    const ctx = await this.createContext(headers);
+    return createVerificationCore(ctx, options);
+  }
+
+  async getSession(
+    headers: Headers,
+    options: Parameters<typeof getSessionCore>[1],
+  ) {
+    const ctx = await this.createContext(headers);
+    return getSessionCore(ctx, options);
+  }
+
+  async initiatePasswordReset(
+    headers: Headers,
+    options: Parameters<typeof initiatePasswordResetCore>[1],
+  ) {
+    const ctx = await this.createContext(headers);
+    return initiatePasswordResetCore(ctx, options);
+  }
+
+  async loginUser(
+    headers: Headers,
+    options: Parameters<typeof loginUserCore>[1],
+  ) {
+    const ctx = await this.createContext(headers);
+    return loginUserCore(ctx, options);
+  }
+
+  async logoutUser(headers: Headers) {
+    const ctx = await this.createContext(headers);
+    return logoutUserCore(ctx);
+  }
+
+  async registerUser(
+    headers: Headers,
+    options: Parameters<typeof registerUserCore>[1],
+  ) {
+    const ctx = await this.createContext(headers);
+    return registerUserCore(ctx, options);
+  }
+
+  async useVerificationToken(
+    headers: Headers,
+    options: Parameters<typeof useVerificationTokenCore>[1],
+  ) {
+    const ctx = await this.createContext(headers);
+    return useVerificationTokenCore(ctx, options);
+  }
+
+  async validateAndRotateSession(headers: Headers) {
+    const ctx = await this.createContext(headers);
+    return validateAndRotateSessionCore(ctx);
+  }
+
+  async validateSession(headers: Headers) {
+    const ctx = await this.createContext(headers);
+    return validateSessionCore(ctx);
   }
 }

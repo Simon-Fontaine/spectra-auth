@@ -50,3 +50,15 @@ export interface ClientSession
   sessionToken: string;
   csrfToken?: string;
 }
+
+export interface PrismaVerification {
+  id: string;
+  userId: string;
+  token: string;
+  type: string;
+  metadata: Record<string, unknown> | null;
+  expiresAt: Date;
+  usedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}

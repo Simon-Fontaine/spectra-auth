@@ -2,6 +2,12 @@ import { Redis } from "@upstash/redis";
 import { z } from "zod";
 import { createTime } from "../utils";
 
+const loggerSchema = z.object({
+  info: z.function().args(z.string(), z.any().optional()).returns(z.void()),
+  warn: z.function().args(z.string(), z.any().optional()).returns(z.void()),
+  error: z.function().args(z.string(), z.any().optional()).returns(z.void()),
+});
+
 const authSchema = z.object({
   registration: z.object({
     enabled: z.boolean().default(true),
@@ -225,6 +231,7 @@ const communicationSchema = z.object({
 });
 
 export const configSchema = z.object({
+  logger: loggerSchema,
   core: z.object({
     baseUrl: z.string().url().default("http://localhost:3000"),
   }),

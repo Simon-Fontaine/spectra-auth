@@ -30,6 +30,8 @@ export async function loginUser(
   const { parsedRequest, prisma, config, endpoints } = ctx;
   const { ipAddress } = parsedRequest ?? {};
 
+  config.logger?.info("Login attempt started", { ip: ipAddress });
+
   try {
     const validatedInput = schema(config.auth.password.rules).safeParse(
       options,
@@ -60,6 +62,8 @@ export async function loginUser(
 
       const limit = await limitIpAddress(ipAddress, limiter);
       if (!limit.success) {
+        config.logger?.warn("Rate limit exceeded", { ip: ipAddress });
+
         return {
           success: false,
           status: 429,
@@ -77,6 +81,8 @@ export async function loginUser(
     })) as PrismaUser | null;
 
     if (!user) {
+      config.logger?.warn("User not found", { usernameOrEmail, ip: ipAddress });
+
       return {
         success: false,
         status: 401,
@@ -87,6 +93,11 @@ export async function loginUser(
     }
 
     if (user.isBanned) {
+      config.logger?.warn("Account is banned", {
+        usernameOrEmail,
+        ip: ipAddress,
+      });
+
       return {
         success: false,
         status: 403,
@@ -99,6 +110,12 @@ export async function loginUser(
     const now = new Date();
     if (user.lockedUntil && user.lockedUntil > now) {
       const lockedUntil = createTime(user.lockedUntil.getTime(), "ms");
+
+      config.logger?.warn("Account locked", {
+        usernameOrEmail,
+        ip: ipAddress,
+        lockedUntil: lockedUntil.fromNow,
+      });
 
       return {
         success: false,
@@ -132,6 +149,12 @@ export async function loginUser(
           },
         });
 
+        config.logger?.warn("Account locked", {
+          usernameOrEmail,
+          ip: ipAddress,
+          lockDuration: lockDuration.fromNow,
+        });
+
         return {
           success: false,
           status: 403,
@@ -159,6 +182,11 @@ export async function loginUser(
       !user.isEmailVerified &&
       config.auth.registration.requireEmailVerification
     ) {
+      config.logger?.warn("Email not verified", {
+        usernameOrEmail,
+        ip: ipAddress,
+      });
+
       return {
         success: false,
         status: 403,
@@ -177,6 +205,8 @@ export async function loginUser(
     if (!sessionRequest.success || !sessionRequest.data?.session) {
       return sessionRequest;
     }
+
+    config.logger?.info("Login successful", { usernameOrEmail, ip: ipAddress });
 
     return {
       success: true,

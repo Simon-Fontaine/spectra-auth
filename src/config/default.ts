@@ -1,4 +1,5 @@
 import { merge } from "lodash";
+import { defaultLogger } from "../logger";
 import { configSchema } from "./schema";
 
 export function buildConfig(
@@ -8,6 +9,12 @@ export function buildConfig(
   const merged = merge({}, defaultConfig, userConfig);
 
   const config = configSchema.parse(merged);
+
+  if (!config.logger) {
+    config.logger = defaultLogger;
+  } else {
+    config.logger = { ...defaultLogger, ...config.logger };
+  }
 
   if (process.env.NODE_ENV === "production") {
     config.security.session.cookie.secure = true;

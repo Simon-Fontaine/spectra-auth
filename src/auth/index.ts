@@ -9,3 +9,4 @@ export * from "./registerUserCore";
 export * from "./useVerificationTokenCore";
 export * from "./validateAndRotateSessionCore";
 export * from "./validateSessionCore";
+export * from "./verifyEmailCore";

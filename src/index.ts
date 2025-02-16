@@ -12,6 +12,7 @@ import {
   useVerificationTokenCore,
   validateAndRotateSessionCore,
   validateSessionCore,
+  verifyEmailCore,
 } from "./auth";
 import { buildConfig } from "./config";
 import {
@@ -146,5 +147,13 @@ export class AegisAuth {
   async validateSession(headers: Headers) {
     const ctx = await this.createContext(headers);
     return validateSessionCore(ctx);
+  }
+
+  async verifyEmail(
+    headers: Headers,
+    options: Parameters<typeof verifyEmailCore>[1],
+  ) {
+    const ctx = await this.createContext(headers);
+    return verifyEmailCore(ctx, options);
   }
 }

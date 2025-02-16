@@ -28,15 +28,24 @@ export async function loginUser(
   options: { usernameOrEmail: string; password: string },
 ): Promise<ActionResponse<{ user?: ClientUser; session?: ClientSession }>> {
   const { parsedRequest, prisma, config, endpoints } = ctx;
+  const { logger } = config;
   const { ipAddress } = parsedRequest ?? {};
 
-  config.logger?.info("Login attempt started", { ip: ipAddress });
+  logger?.info("loginUser attempt", {
+    ip: ipAddress,
+    usernameOrEmail: options.usernameOrEmail,
+  });
 
   try {
     const validatedInput = schema(config.auth.password.rules).safeParse(
       options,
     );
     if (!validatedInput.success) {
+      logger?.warn("loginUser invalid input", {
+        errors: validatedInput.error.errors,
+        ip: ipAddress,
+      });
+
       return {
         success: false,
         status: 400,
@@ -51,6 +60,9 @@ export async function loginUser(
     if (config.protection.rateLimit.endpoints.login.enabled && ipAddress) {
       const limiter = endpoints.login;
       if (!limiter) {
+        logger?.error("loginUser rateLimiter not initialized", {
+          ip: ipAddress,
+        });
         return {
           success: false,
           status: 500,
@@ -62,8 +74,7 @@ export async function loginUser(
 
       const limit = await limitIpAddress(ipAddress, limiter);
       if (!limit.success) {
-        config.logger?.warn("Rate limit exceeded", { ip: ipAddress });
-
+        logger?.warn("loginUser rate limit exceeded", { ip: ipAddress });
         return {
           success: false,
           status: 429,
@@ -81,8 +92,10 @@ export async function loginUser(
     })) as PrismaUser | null;
 
     if (!user) {
-      config.logger?.warn("User not found", { usernameOrEmail, ip: ipAddress });
-
+      logger?.warn("loginUser user not found", {
+        usernameOrEmail,
+        ip: ipAddress,
+      });
       return {
         success: false,
         status: 401,
@@ -93,11 +106,10 @@ export async function loginUser(
     }
 
     if (user.isBanned) {
-      config.logger?.warn("Account is banned", {
-        usernameOrEmail,
+      logger?.warn("loginUser account banned", {
+        userId: user.id,
         ip: ipAddress,
       });
-
       return {
         success: false,
         status: 403,
@@ -110,11 +122,10 @@ export async function loginUser(
     const now = new Date();
     if (user.lockedUntil && user.lockedUntil > now) {
       const lockedUntil = createTime(user.lockedUntil.getTime(), "ms");
-
-      config.logger?.warn("Account locked", {
-        usernameOrEmail,
+      logger?.warn("loginUser account locked", {
+        userId: user.id,
         ip: ipAddress,
-        lockedUntil: lockedUntil.fromNow,
+        lockedUntil: lockedUntil.fromNow(),
       });
 
       return {
@@ -128,19 +139,26 @@ export async function loginUser(
 
     const passwordValid = await verifyPassword({
       hash: user.password,
-      password: password,
+      password,
       config,
     });
 
     if (!passwordValid) {
-      const failedAttempts = user.failedLoginAttempts + 1;
+      const failedLoginAttempts = user.failedLoginAttempts + 1;
       const maxAttempts = config.auth.login.maxFailedAttempts;
       const lockDuration = createTime(
         config.auth.login.lockoutDurationSeconds,
         "ms",
       );
 
-      if (failedAttempts >= maxAttempts) {
+      logger?.warn("loginUser invalid password", {
+        userId: user.id,
+        ip: ipAddress,
+        failedLoginAttempts,
+        maxAttempts,
+      });
+
+      if (failedLoginAttempts >= maxAttempts) {
         await prisma.user.update({
           where: { id: user.id },
           data: {
@@ -149,10 +167,10 @@ export async function loginUser(
           },
         });
 
-        config.logger?.warn("Account locked", {
-          usernameOrEmail,
+        logger?.warn("loginUser account locked due to max attempts", {
+          userId: user.id,
           ip: ipAddress,
-          lockDuration: lockDuration.fromNow,
+          lockDuration: lockDuration.fromNow(),
         });
 
         return {
@@ -166,7 +184,7 @@ export async function loginUser(
 
       await prisma.user.update({
         where: { id: user.id },
-        data: { failedLoginAttempts: failedAttempts },
+        data: { failedLoginAttempts },
       });
 
       return {
@@ -182,11 +200,10 @@ export async function loginUser(
       !user.isEmailVerified &&
       config.auth.registration.requireEmailVerification
     ) {
-      config.logger?.warn("Email not verified", {
-        usernameOrEmail,
+      logger?.warn("loginUser email not verified", {
+        userId: user.id,
         ip: ipAddress,
       });
-
       return {
         success: false,
         status: 403,
@@ -196,6 +213,7 @@ export async function loginUser(
       };
     }
 
+    // Reset attempts
     await prisma.user.update({
       where: { id: user.id },
       data: { failedLoginAttempts: 0, lockedUntil: null },
@@ -203,10 +221,17 @@ export async function loginUser(
 
     const sessionRequest = await createSession(ctx, { userId: user.id });
     if (!sessionRequest.success || !sessionRequest.data?.session) {
+      logger?.error("loginUser session creation failed", {
+        userId: user.id,
+        reason: sessionRequest.message,
+      });
       return sessionRequest;
     }
 
-    config.logger?.info("Login successful", { usernameOrEmail, ip: ipAddress });
+    logger?.info("loginUser success", {
+      userId: user.id,
+      ip: ipAddress,
+    });
 
     return {
       success: true,
@@ -218,6 +243,11 @@ export async function loginUser(
       },
     };
   } catch (error) {
+    logger?.error("loginUser error", {
+      error: error instanceof Error ? error.message : String(error),
+      ip: ipAddress,
+    });
+
     return {
       success: false,
       status: 500,

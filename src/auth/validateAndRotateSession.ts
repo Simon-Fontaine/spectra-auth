@@ -11,15 +11,20 @@ export async function validateAndRotateSession(
   ctx: CoreContext,
 ): Promise<ActionResponse<{ session?: ClientSession }>> {
   const { prisma, config } = ctx;
+  const { logger } = config;
+
+  logger?.info("validateAndRotateSession called", {});
 
   try {
     const isValidSession = await validateSession(ctx);
     if (!isValidSession.success || !isValidSession.data?.session) {
+      logger?.warn("validateAndRotateSession session invalid", {
+        reason: isValidSession.message,
+      });
       return isValidSession;
     }
 
     const session = isValidSession.data.session;
-
     const now = new Date();
     const timeSinceLastRefresh = now.getTime() - session.updatedAt.getTime();
     const shouldRefresh =
@@ -27,14 +32,22 @@ export async function validateAndRotateSession(
       config.security.session.refreshIntervalSeconds * 1000;
 
     if (!shouldRefresh) {
+      logger?.info("validateAndRotateSession no rotation needed", {
+        sessionId: session.id,
+      });
       return isValidSession;
     }
 
+    // create new session
     const newSessionRequest = await createSession(ctx, {
       userId: session.userId,
     });
 
     if (!newSessionRequest.success || !newSessionRequest.data?.session) {
+      logger?.warn("validateAndRotateSession new session creation failed", {
+        userId: session.userId,
+        reason: newSessionRequest.message,
+      });
       return newSessionRequest;
     }
 
@@ -43,8 +56,17 @@ export async function validateAndRotateSession(
       data: { isRevoked: true },
     });
 
+    logger?.info("validateAndRotateSession session rotated", {
+      oldSessionId: session.id,
+      newSessionId: newSessionRequest.data.session.id,
+    });
+
     return newSessionRequest;
   } catch (error) {
+    logger?.error("validateAndRotateSession error", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+
     return {
       success: false,
       status: 500,

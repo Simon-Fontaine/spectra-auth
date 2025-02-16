@@ -27,10 +27,14 @@ export async function registerUser(
   options: { username: string; email: string; password: string },
 ): Promise<ActionResponse<{ user?: ClientUser }>> {
   const { parsedRequest, prisma, config, endpoints } = ctx;
+  const { logger } = config;
   const { ipAddress } = parsedRequest ?? {};
+
+  logger?.info("registerUser attempt", { ip: ipAddress, email: options.email });
 
   try {
     if (!config.auth.registration.enabled) {
+      logger?.warn("registerUser disabled", { ip: ipAddress });
       return {
         success: false,
         status: 400,
@@ -44,6 +48,10 @@ export async function registerUser(
       options,
     );
     if (!validatedInput.success) {
+      logger?.warn("registerUser invalid input", {
+        errors: validatedInput.error.errors,
+        ip: ipAddress,
+      });
       return {
         success: false,
         status: 400,
@@ -58,6 +66,9 @@ export async function registerUser(
     if (config.protection.rateLimit.endpoints.register.enabled && ipAddress) {
       const limiter = endpoints.register;
       if (!limiter) {
+        logger?.error("registerUser rateLimiter not initialized", {
+          ip: ipAddress,
+        });
         return {
           success: false,
           status: 500,
@@ -69,6 +80,7 @@ export async function registerUser(
 
       const limit = await limitIpAddress(ipAddress, limiter);
       if (!limit.success) {
+        logger?.warn("registerUser rate limit exceeded", { ip: ipAddress });
         return {
           success: false,
           status: 429,
@@ -86,6 +98,11 @@ export async function registerUser(
     })) as PrismaUser | null;
 
     if (existingUser) {
+      logger?.warn("registerUser user exists", {
+        username,
+        email,
+        ip: ipAddress,
+      });
       return {
         success: false,
         status: 409,
@@ -96,7 +113,6 @@ export async function registerUser(
     }
 
     const hashedPassword = await hashPassword({ password, config });
-
     const user = (await prisma.user.create({
       data: {
         username,
@@ -106,8 +122,10 @@ export async function registerUser(
       },
     })) as PrismaUser;
 
+    logger?.info("registerUser success", { userId: user.id, ip: ipAddress });
+
     if (config.auth.registration.requireEmailVerification) {
-      // Send verification email
+      logger?.info("sendVerificationEmail", { userId: user.id });
     }
 
     return {
@@ -117,6 +135,11 @@ export async function registerUser(
       data: { user: transformUser({ user }) },
     };
   } catch (error) {
+    logger?.error("registerUser error", {
+      error: error instanceof Error ? error.message : String(error),
+      ip: ipAddress,
+    });
+
     return {
       success: false,
       status: 500,

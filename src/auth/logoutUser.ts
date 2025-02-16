@@ -8,10 +8,14 @@ import {
 
 export async function logoutUser(ctx: CoreContext): Promise<ActionResponse> {
   const { parsedRequest, prisma, config } = ctx;
-  const { sessionToken } = parsedRequest || {};
+  const { logger } = config;
+  const { sessionToken, ipAddress } = parsedRequest || {};
+
+  logger?.info("logoutUser called", { ip: ipAddress });
 
   try {
     if (!sessionToken) {
+      logger?.warn("logoutUser no session token", { ip: ipAddress });
       return {
         success: false,
         status: 401,
@@ -26,6 +30,7 @@ export async function logoutUser(ctx: CoreContext): Promise<ActionResponse> {
     })) as PrismaSession | null;
 
     if (!session) {
+      logger?.warn("logoutUser invalid token", { ip: ipAddress });
       return {
         success: false,
         status: 401,
@@ -39,12 +44,22 @@ export async function logoutUser(ctx: CoreContext): Promise<ActionResponse> {
       data: { isRevoked: true },
     });
 
+    logger?.info("logoutUser success", {
+      userId: session.userId,
+      ip: ipAddress,
+    });
+
     return {
       success: true,
       status: 200,
       message: "User logged out successfully",
     };
   } catch (error) {
+    logger?.error("logoutUser error", {
+      error: error instanceof Error ? error.message : String(error),
+      ip: ipAddress,
+    });
+
     return {
       success: false,
       status: 500,

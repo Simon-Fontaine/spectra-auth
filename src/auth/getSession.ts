@@ -20,11 +20,15 @@ export async function getSession(
     roles?: string[];
   }>
 > {
-  const { parsedRequest, prisma } = ctx;
-  const { sessionToken } = parsedRequest || {};
+  const { parsedRequest, prisma, config } = ctx;
+  const { logger } = config;
+  const { sessionToken, ipAddress } = parsedRequest || {};
+
+  logger?.info("getSession called", { ip: ipAddress });
 
   try {
     if (!sessionToken) {
+      logger?.warn("getSession no session token", { ip: ipAddress });
       return {
         success: false,
         status: 401,
@@ -42,16 +46,23 @@ export async function getSession(
     }
 
     if (!sessionResult.success || !sessionResult.data?.session) {
+      logger?.warn("getSession validation failed", {
+        ip: ipAddress,
+        reason: sessionResult.message,
+      });
       return sessionResult;
     }
 
     const session = sessionResult.data.session;
-
     const user = (await prisma.user.findUnique({
       where: { id: session.userId },
     })) as PrismaUser | null;
 
     if (!user) {
+      logger?.warn("getSession user not found", {
+        userId: session.userId,
+        ip: ipAddress,
+      });
       return {
         success: false,
         status: 401,
@@ -66,6 +77,8 @@ export async function getSession(
     });
     const roles = userRoles.map((userRole) => userRole.role.name);
 
+    logger?.info("getSession success", { userId: user.id, ip: ipAddress });
+
     return {
       success: true,
       status: 200,
@@ -77,6 +90,11 @@ export async function getSession(
       },
     };
   } catch (error) {
+    logger?.error("getSession error", {
+      error: error instanceof Error ? error.message : String(error),
+      ip: ipAddress,
+    });
+
     return {
       success: false,
       status: 500,

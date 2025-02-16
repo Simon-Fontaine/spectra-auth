@@ -7,7 +7,6 @@ export function buildConfig(
 ) {
   const defaultConfig = configSchema.parse({});
   const merged = merge({}, defaultConfig, userConfig);
-
   const config = configSchema.parse(merged);
 
   if (!config.logger) {
@@ -16,6 +15,7 @@ export function buildConfig(
     config.logger = { ...defaultLogger, ...config.logger };
   }
 
+  // Production checks...
   if (process.env.NODE_ENV === "production") {
     config.security.session.cookie.secure = true;
     config.security.csrf.cookie.secure = true;

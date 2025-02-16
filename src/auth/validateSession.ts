@@ -12,10 +12,14 @@ export async function validateSession(
   ctx: CoreContext,
 ): Promise<ActionResponse<{ session?: ClientSession }>> {
   const { parsedRequest, prisma, config } = ctx;
-  const { sessionToken, csrfToken } = parsedRequest || {};
+  const { logger } = config;
+  const { sessionToken, csrfToken, ipAddress } = parsedRequest || {};
+
+  logger?.info("validateSession called", { ip: ipAddress });
 
   try {
     if (!sessionToken) {
+      logger?.warn("validateSession no session token", { ip: ipAddress });
       return {
         success: false,
         status: 401,
@@ -30,6 +34,7 @@ export async function validateSession(
     })) as PrismaSession | null;
 
     if (!session) {
+      logger?.warn("validateSession invalid token", { ip: ipAddress });
       return {
         success: false,
         status: 401,
@@ -39,6 +44,10 @@ export async function validateSession(
     }
 
     if (session.isRevoked) {
+      logger?.warn("validateSession revoked session", {
+        sessionId: session.id,
+        ip: ipAddress,
+      });
       return {
         success: false,
         status: 401,
@@ -57,6 +66,11 @@ export async function validateSession(
       );
 
     if (isExpired || isMaxLifetime) {
+      logger?.info("validateSession session expired", {
+        sessionId: session.id,
+        isExpired,
+        isMaxLifetime,
+      });
       await prisma.session.update({
         where: { id: session.id },
         data: { isRevoked: true },
@@ -78,6 +92,10 @@ export async function validateSession(
       });
 
       if (!isValidCsrf) {
+        logger?.warn("validateSession invalid csrf", {
+          sessionId: session.id,
+          ip: ipAddress,
+        });
         return {
           success: false,
           status: 401,
@@ -87,6 +105,11 @@ export async function validateSession(
       }
     }
 
+    logger?.info("validateSession success", {
+      sessionId: session.id,
+      ip: ipAddress,
+    });
+
     return {
       success: true,
       status: 200,
@@ -94,6 +117,11 @@ export async function validateSession(
       data: { session: transformSession({ session, sessionToken, csrfToken }) },
     };
   } catch (error) {
+    logger?.error("validateSession error", {
+      error: error instanceof Error ? error.message : String(error),
+      ip: ipAddress,
+    });
+
     return {
       success: false,
       status: 500,

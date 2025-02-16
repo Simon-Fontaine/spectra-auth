@@ -1,6 +1,6 @@
 import type { Ratelimit } from "@upstash/ratelimit";
 
-export interface Limiters {
+export interface Endpoints {
   login?: Ratelimit;
   register?: Ratelimit;
   verifyEmail?: Ratelimit;
@@ -9,3 +9,13 @@ export interface Limiters {
   initiateEmailChange?: Ratelimit;
   completeEmailChange?: Ratelimit;
 }
+
+export const defaultEndpoints = [
+  "login",
+  "register",
+  "verifyEmail",
+  "initiatePasswordReset",
+  "completePasswordReset",
+  "initiateEmailChange",
+  "completeEmailChange",
+] as const;

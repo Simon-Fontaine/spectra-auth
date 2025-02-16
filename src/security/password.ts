@@ -1,6 +1,6 @@
 import { scryptAsync } from "@noble/hashes/scrypt";
 import { getRandomValues } from "uncrypto";
-import type { AegisAuthConfig } from "../config";
+import type { AegisAuthConfig } from "../types";
 import { timingSafeEqual } from "./compare";
 import { decodeHexToBytes, hex } from "./hex";
 
@@ -9,15 +9,15 @@ async function generateKey({
   salt,
   config,
 }: { password: string; salt: string; config: AegisAuthConfig }) {
-  const { costFactor, parallelization, blockSize, derivedKeyLength } =
-    config.accountSecurity.passwordHashing;
+  const { cost, blockSize, parallelization, keyLength } =
+    config.auth.password.hash;
 
   return await scryptAsync(password.normalize("NFKC"), salt, {
-    N: costFactor,
+    N: cost,
     p: parallelization,
     r: blockSize,
-    dkLen: derivedKeyLength,
-    maxmem: 128 * costFactor * blockSize * 2,
+    dkLen: keyLength,
+    maxmem: 128 * cost * blockSize * 2,
   });
 }
 

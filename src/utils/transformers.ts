@@ -5,19 +5,19 @@ import type {
   PrismaUser,
 } from "../types";
 
-export function clientSafeUser({ user }: { user: PrismaUser }): ClientUser {
+export function transformUser({ user }: { user: PrismaUser }): ClientUser {
   const { password, ...safeUser } = user;
   return safeUser;
 }
 
-export function clientSafeSession({
+export function transformSession({
   session,
   sessionToken,
   csrfToken,
 }: {
   session: PrismaSession;
   sessionToken: string;
-  csrfToken: string;
+  csrfToken?: string;
 }): ClientSession {
   const { csrfTokenHash, tokenHash, ...safeSession } = session;
   const clientSession = {

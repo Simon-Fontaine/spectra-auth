@@ -1,4 +1,4 @@
-import type { AegisAuthConfig } from "../config";
+import type { AegisAuthConfig } from "../types";
 import { base64Url } from "./base64";
 import { createHMAC } from "./hmac";
 import { randomBytes } from "./random";
@@ -7,11 +7,11 @@ export async function generateSessionToken({
   config,
 }: { config: AegisAuthConfig }) {
   const sessionToken = base64Url.encode(
-    randomBytes(config.session.tokenLengthBytes),
+    randomBytes(config.security.session.secretLength),
   );
 
   const sessionTokenHash = await createHMAC("SHA-256", "base64urlnopad").sign(
-    config.session.tokenSecret,
+    config.security.session.secret,
     sessionToken,
   );
 
@@ -29,7 +29,7 @@ export async function signSessionToken({
   config: AegisAuthConfig;
 }) {
   return await createHMAC("SHA-256", "base64urlnopad").sign(
-    config.session.tokenSecret,
+    config.security.session.secret,
     sessionToken,
   );
 }
@@ -44,7 +44,7 @@ export async function verifySessionToken({
   config: AegisAuthConfig;
 }) {
   return await createHMAC("SHA-256", "base64urlnopad").verify(
-    config.session.tokenSecret,
+    config.security.session.secret,
     sessionToken,
     sessionTokenHash,
   );

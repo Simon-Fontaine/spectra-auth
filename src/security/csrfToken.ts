@@ -1,4 +1,4 @@
-import type { AegisAuthConfig } from "../config";
+import type { AegisAuthConfig } from "../types";
 import { base64Url } from "./base64";
 import { createHMAC } from "./hmac";
 import { randomBytes } from "./random";
@@ -8,10 +8,12 @@ export async function generateCsrfToken({
 }: {
   config: AegisAuthConfig;
 }) {
-  const csrfToken = base64Url.encode(randomBytes(config.csrf.tokenLengthBytes));
+  const csrfToken = base64Url.encode(
+    randomBytes(config.security.csrf.secretLength),
+  );
 
   const csrfTokenHash = await createHMAC("SHA-256", "base64urlnopad").sign(
-    config.csrf.tokenSecret,
+    config.security.csrf.secret,
     csrfToken,
   );
 
@@ -31,7 +33,7 @@ export async function verifyCsrfToken({
   config: AegisAuthConfig;
 }) {
   return await createHMAC("SHA-256", "base64urlnopad").verify(
-    config.csrf.tokenSecret,
+    config.security.csrf.secret,
     token,
     hash,
   );

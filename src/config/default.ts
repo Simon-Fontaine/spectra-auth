@@ -1,19 +1,21 @@
-import _ from "lodash";
-import { type AegisAuthConfig, configSchema } from "./schema";
+import lodash from "lodash";
+import type { AegisAuthConfig } from "../types";
+import { configSchema } from "./schema";
 
-export const defaultConfig: AegisAuthConfig = configSchema.parse({});
+export const defaultConfig = configSchema.parse({});
 
-export function buildConfig(
-  userConfig?: Partial<AegisAuthConfig>,
-): AegisAuthConfig {
-  const merged = _.merge({}, defaultConfig, userConfig);
-  const finalConfig = configSchema.parse(merged);
+export function buildConfig(userConfig?: Partial<AegisAuthConfig>) {
+  const merged = lodash.merge({}, defaultConfig, userConfig);
+  const config = configSchema.parse(merged);
 
-  if (finalConfig.rateLimiting.enabled && !finalConfig.rateLimiting.redis) {
+  if (
+    config.protection.rateLimit.enabled &&
+    !config.protection.rateLimit.redis
+  ) {
     throw new Error(
-      "Rate limiting is enabled but no Redis instance was provided in the config.",
+      "Rate limiting is enabled but no Redis configuration provided",
     );
   }
 
-  return finalConfig;
+  return config;
 }

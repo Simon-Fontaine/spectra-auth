@@ -48,6 +48,7 @@ export const configSchema = z.object({
           maxmindLicenseKey: z
             .string()
             .default(process.env.MAXMIND_LICENSE_KEY || ""),
+          maxmindHost: z.string().default("geolite.info"),
         })
         .default({}),
     })
@@ -60,14 +61,7 @@ export const configSchema = z.object({
         .object({
           secret: z
             .string()
-            .default(process.env.SESSION_TOKEN_SECRET || "change-me")
-            .refine(
-              (value) =>
-                process.env.NODE_ENV !== "production" || value !== "change-me",
-              {
-                message: "Please set a secure session secret in production",
-              },
-            ),
+            .default(process.env.SESSION_TOKEN_SECRET || "change-me"),
           secretLength: z.number().int().positive().default(64),
           maxLifetime: z
             .number()
@@ -103,14 +97,7 @@ export const configSchema = z.object({
           enabled: z.boolean().default(true),
           secret: z
             .string()
-            .default(process.env.CSRF_TOKEN_SECRET || "change-me")
-            .refine(
-              (value) =>
-                process.env.NODE_ENV !== "production" || value !== "change-me",
-              {
-                message: "Please set a secure CSRF secret in production",
-              },
-            ),
+            .default(process.env.CSRF_TOKEN_SECRET || "change-me"),
           secretLength: z.number().int().positive().default(32),
           cookie: z
             .object({

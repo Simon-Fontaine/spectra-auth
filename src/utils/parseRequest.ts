@@ -52,7 +52,7 @@ export async function parseRequest(
         config.auth.geo.maxmindClientId,
         config.auth.geo.maxmindLicenseKey,
         {
-          host: "geolite.info",
+          host: config.auth.geo.maxmindHost,
         },
       ).city(ipAddress);
 

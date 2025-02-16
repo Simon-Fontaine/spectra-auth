@@ -104,6 +104,15 @@ export async function useVerificationTokenCore(
       };
     }
 
+    await prisma.verification.update({
+      where: {
+        id: verification.id,
+      },
+      data: {
+        usedAt: now,
+      },
+    });
+
     logger?.info("useVerificationToken success", { token: options?.token });
 
     return {

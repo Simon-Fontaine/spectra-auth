@@ -65,7 +65,9 @@ export async function parseRequest(
         longitude: response.location?.longitude,
       };
     } catch (error) {
-      console.error("Error fetching location data", error);
+      config.logger?.error("Error fetching location data", {
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 

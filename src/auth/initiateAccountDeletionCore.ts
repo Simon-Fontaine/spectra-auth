@@ -1,13 +1,7 @@
-import { signSessionToken } from "../security";
-import {
-  type ActionResponse,
-  type CoreContext,
-  ErrorCodes,
-  type PrismaSession,
-  type PrismaUser,
-} from "../types";
+import { type ActionResponse, type CoreContext, ErrorCodes } from "../types";
 import { limitIpAddress } from "../utils";
 import { createVerificationCore } from "./createVerificationCore";
+import { getSessionCore } from "./getSessionCore";
 
 export async function initiateAccountDeletionCore(
   ctx: CoreContext,
@@ -57,22 +51,11 @@ export async function initiateAccountDeletionCore(
       }
     }
 
-    if (!sessionToken) {
-      logger?.warn("initiateAccountDeletionCore no session token", {
-        ip: ipAddress,
-      });
-      return {
-        success: false,
-        status: 401,
-        message: "No session token provided",
-        code: ErrorCodes.SESSION_NOT_FOUND,
-      };
+    const sessionResult = await getSessionCore(ctx, { disableRefresh: true });
+    if (!sessionResult.success || !sessionResult.data) {
+      return sessionResult;
     }
-
-    const tokenHash = await signSessionToken({ sessionToken, config });
-    const session = (await prisma.session.findUnique({
-      where: { tokenHash },
-    })) as PrismaSession | null;
+    const { session, user } = sessionResult.data;
 
     if (!session || session.isRevoked) {
       logger?.warn("initiateAccountDeletionCore invalid or revoked session", {
@@ -86,10 +69,6 @@ export async function initiateAccountDeletionCore(
       };
     }
     const userId = session.userId;
-
-    const user = (await prisma.user.findUnique({
-      where: { id: userId },
-    })) as PrismaUser | null;
 
     if (!user) {
       logger?.warn("initiateAccountDeletionCore user not found", {

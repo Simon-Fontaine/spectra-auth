@@ -1,10 +1,5 @@
-import { signSessionToken } from "../security";
-import {
-  type ActionResponse,
-  type CoreContext,
-  ErrorCodes,
-  type PrismaSession,
-} from "../types";
+import { type ActionResponse, type CoreContext, ErrorCodes } from "../types";
+import { getSessionCore } from "./getSessionCore";
 
 export async function logoutUserCore(
   ctx: CoreContext,
@@ -16,30 +11,11 @@ export async function logoutUserCore(
   logger?.info("logoutUser called", { ip: ipAddress });
 
   try {
-    if (!sessionToken) {
-      logger?.warn("logoutUser no session token", { ip: ipAddress });
-      return {
-        success: false,
-        status: 401,
-        message: "No session token provided",
-        code: ErrorCodes.SESSION_NOT_FOUND,
-      };
+    const sessionResult = await getSessionCore(ctx, { disableRefresh: true });
+    if (!sessionResult.success || !sessionResult.data?.session) {
+      return sessionResult;
     }
-
-    const tokenHash = await signSessionToken({ sessionToken, config });
-    const session = (await prisma.session.findUnique({
-      where: { tokenHash },
-    })) as PrismaSession | null;
-
-    if (!session) {
-      logger?.warn("logoutUser invalid token", { ip: ipAddress });
-      return {
-        success: false,
-        status: 401,
-        message: "Invalid session token",
-        code: ErrorCodes.SESSION_INVALID,
-      };
-    }
+    const { session } = sessionResult.data;
 
     await prisma.session.update({
       where: { id: session.id },

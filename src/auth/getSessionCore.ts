@@ -18,6 +18,7 @@ export async function getSessionCore(
     session?: ClientSession;
     user?: ClientUser;
     roles?: string[];
+    permissions?: string[];
   }>
 > {
   const { parsedRequest, prisma, config } = ctx;
@@ -37,8 +38,7 @@ export async function getSessionCore(
       };
     }
 
-    let sessionResult: ActionResponse<{ session?: ClientSession }> | undefined;
-
+    let sessionResult: ActionResponse<{ session?: ClientSession }>;
     if (options?.disableRefresh) {
       sessionResult = await validateSessionCore(ctx);
     } else {
@@ -76,6 +76,15 @@ export async function getSessionCore(
       include: { role: true },
     });
     const roles = userRoles.map((userRole) => userRole.role.name);
+    const permissionsSet = new Set<string>();
+    for (const ur of userRoles) {
+      if (ur.role.permissions) {
+        for (const perm of ur.role.permissions) {
+          permissionsSet.add(perm);
+        }
+      }
+    }
+    const permissions = Array.from(permissionsSet);
 
     logger?.info("getSession success", { userId: user.id, ip: ipAddress });
 
@@ -87,6 +96,7 @@ export async function getSessionCore(
         session,
         user: transformUser({ user }),
         roles,
+        permissions,
       },
     };
   } catch (error) {

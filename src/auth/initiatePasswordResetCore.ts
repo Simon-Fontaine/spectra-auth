@@ -110,7 +110,6 @@ export async function initiatePasswordResetCore(
       toEmail: email,
       token,
       type: "INITIATE_PASSWORD_RESET",
-      callbackUrl: `${config.core.baseUrl}/reset-password?token=`,
     });
 
     logger?.info("initiatePasswordResetCore success", {

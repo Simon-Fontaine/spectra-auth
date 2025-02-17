@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { sendVerificationEmail } from "../emails/sendVerificationEmail";
 import { signSessionToken } from "../security";
 import {
   type ActionResponse,
@@ -145,7 +146,6 @@ export async function initiateEmailChangeCore(
     const emailInUse = await prisma.user.findUnique({
       where: { email: newEmail },
     });
-
     if (emailInUse) {
       logger?.warn("initiateEmailChangeCore new email in use", {
         userId,
@@ -189,8 +189,11 @@ export async function initiateEmailChangeCore(
     }
 
     const { token } = verificationRequest.data.verification;
-    // TODO: Send email with token
-    console.log("Email change token:", token);
+    await sendVerificationEmail(ctx, {
+      toEmail: newEmail,
+      token,
+      type: "INITIATE_EMAIL_CHANGE",
+    });
 
     logger?.info("initiateEmailChangeCore success", {
       userId,

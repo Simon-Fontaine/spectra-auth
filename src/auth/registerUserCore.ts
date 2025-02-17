@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { sendVerificationEmail } from "../emails/sendVerificationEmail";
 import { hashPassword } from "../security";
 import {
   type ActionResponse,
@@ -148,8 +149,12 @@ export async function registerUserCore(
       }
 
       const { token } = verificationRequest.data.verification;
-      // TODO: Send email with token
-      console.log("Email confirmation token:", token);
+      await sendVerificationEmail(ctx, {
+        toEmail: user.email,
+        token,
+        type: "CONFIRM_EMAIL_AFTER_REGISTER",
+        callbackUrl: `${config.core.baseUrl}/verify-email?token=`,
+      });
     }
 
     return {

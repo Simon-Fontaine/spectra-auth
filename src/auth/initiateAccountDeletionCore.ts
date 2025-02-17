@@ -1,3 +1,4 @@
+import { sendVerificationEmail } from "../emails/sendVerificationEmail";
 import { type ActionResponse, type CoreContext, ErrorCodes } from "../types";
 import { limitIpAddress } from "../utils";
 import { createVerificationCore } from "./createVerificationCore";
@@ -6,9 +7,9 @@ import { getSessionCore } from "./getSessionCore";
 export async function initiateAccountDeletionCore(
   ctx: CoreContext,
 ): Promise<ActionResponse> {
-  const { parsedRequest, prisma, config, endpoints } = ctx;
+  const { parsedRequest, config, endpoints } = ctx;
   const { logger } = config;
-  const { ipAddress, sessionToken } = parsedRequest ?? {};
+  const { ipAddress } = parsedRequest ?? {};
 
   logger?.info("initiateAccountDeletionCore called", {
     ip: ipAddress,
@@ -107,8 +108,11 @@ export async function initiateAccountDeletionCore(
     }
 
     const { token } = verificationRequest.data.verification;
-    // TODO: Send email with token
-    console.log("Account deletion token:", token);
+    await sendVerificationEmail(ctx, {
+      toEmail: user.email,
+      token,
+      type: "INITIATE_ACCOUNT_DELETION",
+    });
 
     logger?.info("initiateAccountDeletionCore success", {
       userId,

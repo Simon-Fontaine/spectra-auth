@@ -220,35 +220,34 @@ const protectionSchema = z.object({
     }),
   }),
 });
-
+const emailTemplateSchema = z.object({
+  subject: z
+    .function()
+    .args(
+      z.object({
+        token: z.string(),
+        toEmail: z.string(),
+        callbackUrl: z.string().optional(),
+      }),
+    )
+    .returns(z.string()),
+  html: z
+    .function()
+    .args(
+      z.object({
+        token: z.string(),
+        toEmail: z.string(),
+        callbackUrl: z.string().optional(),
+      }),
+    )
+    .returns(z.string()),
+});
+const dynamicTemplatesSchema = z.record(emailTemplateSchema).default({});
 const communicationSchema = z.object({
   email: z.object({
     from: z.string().email().default("no-reply@example.com"),
     resendApiKey: z.string().default(process.env.RESEND_API_KEY || ""),
-    templates: z.object({
-      verifyEmail: z
-        .function()
-        .args(
-          z.object({
-            token: z.string(),
-            toEmail: z.string(),
-            callbackUrl: z.string(),
-          }),
-        )
-        .returns(z.string())
-        .optional(),
-      passwordReset: z
-        .function()
-        .args(
-          z.object({
-            token: z.string(),
-            toEmail: z.string(),
-            callbackUrl: z.string(),
-          }),
-        )
-        .returns(z.string())
-        .optional(),
-    }),
+    templates: dynamicTemplatesSchema,
   }),
 });
 

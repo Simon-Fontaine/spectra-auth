@@ -11,6 +11,7 @@ export * from "./initiatePasswordResetCore";
 export * from "./loginUserCore";
 export * from "./logoutUserCore";
 export * from "./registerUserCore";
+export * from "./roleManagementCore";
 export * from "./unbanUserCore";
 export * from "./useVerificationTokenCore";
 export * from "./validateAndRotateSessionCore";

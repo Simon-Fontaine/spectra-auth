@@ -1,12 +1,17 @@
 import type { PrismaClient } from "@prisma/client";
 import { Ratelimit } from "@upstash/ratelimit";
 import {
+  addRoleToUserCore,
   banUserCore,
   completeAccountDeletionCore,
   completeEmailChangeCore,
   completePasswordResetCore,
+  createRoleCore,
   createSessionCore,
   createVerificationCore,
+  deleteRoleCore,
+  getRoleByIdCore,
+  getRolesCore,
   getSessionCore,
   initiateAccountDeletionCore,
   initiateEmailChangeCore,
@@ -14,7 +19,9 @@ import {
   loginUserCore,
   logoutUserCore,
   registerUserCore,
+  removeRoleFromUserCore,
   unbanUserCore,
+  updateRoleCore,
   useVerificationTokenCore,
   validateAndRotateSessionCore,
   validateSessionCore,
@@ -209,5 +216,59 @@ export class AegisAuth {
   ) {
     const ctx = await this.createContext(headers);
     return verifyEmailCore(ctx, options);
+  }
+
+  // Role management
+  async createRole(
+    headers: Headers,
+    data: Parameters<typeof createRoleCore>[1],
+  ) {
+    const ctx = await this.createContext(headers);
+    return createRoleCore(ctx, data);
+  }
+
+  async updateRole(
+    headers: Headers,
+    data: Parameters<typeof updateRoleCore>[1],
+  ) {
+    const ctx = await this.createContext(headers);
+    return updateRoleCore(ctx, data);
+  }
+
+  async deleteRole(
+    headers: Headers,
+    data: Parameters<typeof deleteRoleCore>[1],
+  ) {
+    const ctx = await this.createContext(headers);
+    return deleteRoleCore(ctx, data);
+  }
+
+  async addRoleToUser(
+    headers: Headers,
+    data: Parameters<typeof addRoleToUserCore>[1],
+  ) {
+    const ctx = await this.createContext(headers);
+    return addRoleToUserCore(ctx, data);
+  }
+
+  async removeRoleFromUser(
+    headers: Headers,
+    data: Parameters<typeof removeRoleFromUserCore>[1],
+  ) {
+    const ctx = await this.createContext(headers);
+    return removeRoleFromUserCore(ctx, data);
+  }
+
+  async getRoles(headers: Headers) {
+    const ctx = await this.createContext(headers);
+    return getRolesCore(ctx);
+  }
+
+  async getRoleById(
+    headers: Headers,
+    data: Parameters<typeof getRoleByIdCore>[1],
+  ) {
+    const ctx = await this.createContext(headers);
+    return getRoleByIdCore(ctx, data);
   }
 }

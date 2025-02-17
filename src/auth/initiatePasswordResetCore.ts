@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { sendPasswordResetEmail } from "../emails";
 import {
   type ActionResponse,
   type CoreContext,
@@ -105,8 +106,25 @@ export async function initiatePasswordResetCore(
     }
 
     const { token } = verificationRequest.data.verification;
-    // TODO: Send email with token
-    console.log("Password reset token:", token);
+    const emailResult = await sendPasswordResetEmail(ctx, {
+      toEmail: email,
+      token: token,
+    });
+
+    if (emailResult.error) {
+      logger?.error("initiatePasswordResetCore email not sent", {
+        email,
+        ip: ipAddress,
+      });
+
+      return {
+        success: false,
+        status: 500,
+        message: "An unexpected error occurred while sending email",
+        code: ErrorCodes.INTERNAL_ERROR,
+        data: null,
+      };
+    }
 
     logger?.info("initiatePasswordResetCore success", {
       email,

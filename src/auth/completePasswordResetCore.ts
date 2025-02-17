@@ -33,12 +33,10 @@ export async function completePasswordResetCore(
   });
 
   try {
-    const validatedInput = schema(config.auth.password.rules).safeParse(
-      options,
-    );
-    if (!validatedInput.success) {
+    const parsed = schema(config.auth.password.rules).safeParse(options);
+    if (!parsed.success) {
       logger?.warn("completePasswordResetCore invalid input", {
-        errors: validatedInput.error.errors,
+        errors: parsed.error.errors,
       });
 
       return {
@@ -50,7 +48,7 @@ export async function completePasswordResetCore(
       };
     }
 
-    const { token, newPassword } = validatedInput.data;
+    const { token, newPassword } = parsed.data;
 
     if (
       config.protection.rateLimit.endpoints.completePasswordReset.enabled &&

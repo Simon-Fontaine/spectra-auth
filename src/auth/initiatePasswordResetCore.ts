@@ -26,10 +26,10 @@ export async function initiatePasswordResetCore(
   logger?.info("initiatePasswordResetCore called", { email: options.email });
 
   try {
-    const validatedInput = schema.safeParse(options);
-    if (!validatedInput.success) {
+    const parsed = schema.safeParse(options);
+    if (!parsed.success) {
       logger?.warn("initiatePasswordResetCore invalid input", {
-        errors: validatedInput.error.errors,
+        errors: parsed.error.errors,
       });
       return {
         success: false,
@@ -40,7 +40,7 @@ export async function initiatePasswordResetCore(
       };
     }
 
-    const { email } = validatedInput.data;
+    const { email } = parsed.data;
 
     if (
       config.protection.rateLimit.endpoints.initiatePasswordReset.enabled &&

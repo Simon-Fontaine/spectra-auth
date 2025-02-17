@@ -24,10 +24,10 @@ export async function useVerificationTokenCore(
   logger?.info("useVerificationToken called", { token: options?.token });
 
   try {
-    const validatedInput = schema.safeParse(options);
-    if (!validatedInput.success) {
+    const parsed = schema.safeParse(options);
+    if (!parsed.success) {
       logger?.warn("useVerificationToken invalid input", {
-        errors: validatedInput.error.errors,
+        errors: parsed.error.errors,
       });
 
       return {
@@ -40,7 +40,7 @@ export async function useVerificationTokenCore(
     }
 
     const now = new Date();
-    const { token, type } = validatedInput.data;
+    const { token, type } = parsed.data;
 
     const verification = (await prisma.verification.findFirst({
       where: {

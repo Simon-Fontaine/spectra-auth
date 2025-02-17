@@ -37,12 +37,10 @@ export async function loginUserCore(
   });
 
   try {
-    const validatedInput = schema(config.auth.password.rules).safeParse(
-      options,
-    );
-    if (!validatedInput.success) {
+    const parsed = schema(config.auth.password.rules).safeParse(options);
+    if (!parsed.success) {
       logger?.warn("loginUser invalid input", {
-        errors: validatedInput.error.errors,
+        errors: parsed.error.errors,
         ip: ipAddress,
       });
 
@@ -55,7 +53,7 @@ export async function loginUserCore(
       };
     }
 
-    const { usernameOrEmail, password } = validatedInput.data;
+    const { usernameOrEmail, password } = parsed.data;
 
     if (config.protection.rateLimit.endpoints.login.enabled && ipAddress) {
       const limiter = endpoints.login;

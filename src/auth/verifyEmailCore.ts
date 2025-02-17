@@ -22,10 +22,10 @@ export async function verifyEmailCore(
   });
 
   try {
-    const validatedInput = schema.safeParse(options);
-    if (!validatedInput.success) {
+    const parsed = schema.safeParse(options);
+    if (!parsed.success) {
       logger?.warn("verifyEmailCore invalid input", {
-        errors: validatedInput.error.errors,
+        errors: parsed.error.errors,
       });
 
       return {
@@ -37,7 +37,7 @@ export async function verifyEmailCore(
       };
     }
 
-    const { token } = validatedInput.data;
+    const { token } = parsed.data;
 
     if (
       config.protection.rateLimit.endpoints.verifyEmail.enabled &&

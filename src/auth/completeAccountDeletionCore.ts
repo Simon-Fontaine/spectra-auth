@@ -20,10 +20,10 @@ export async function completeAccountDeletionCore(
   });
 
   try {
-    const validatedInput = schema.safeParse(options);
-    if (!validatedInput.success) {
+    const parsed = schema.safeParse(options);
+    if (!parsed.success) {
       logger?.warn("completeAccountDeletionCore invalid input", {
-        errors: validatedInput.error.errors,
+        errors: parsed.error.errors,
       });
       return {
         success: false,
@@ -34,7 +34,7 @@ export async function completeAccountDeletionCore(
       };
     }
 
-    const { token } = validatedInput.data;
+    const { token } = parsed.data;
 
     if (
       config.protection.rateLimit.endpoints.completeAccountDeletion?.enabled &&

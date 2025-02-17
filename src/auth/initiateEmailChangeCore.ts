@@ -31,10 +31,10 @@ export async function initiateEmailChangeCore(
   });
 
   try {
-    const validatedInput = schema.safeParse(options);
-    if (!validatedInput.success) {
+    const parsed = schema.safeParse(options);
+    if (!parsed.success) {
       logger?.warn("initiateEmailChangeCore invalid input", {
-        errors: validatedInput.error.errors,
+        errors: parsed.error.errors,
       });
       return {
         success: false,
@@ -44,7 +44,7 @@ export async function initiateEmailChangeCore(
         data: null,
       };
     }
-    const { newEmail } = validatedInput.data;
+    const { newEmail } = parsed.data;
 
     if (
       config.protection.rateLimit.endpoints.initiateEmailChange.enabled &&

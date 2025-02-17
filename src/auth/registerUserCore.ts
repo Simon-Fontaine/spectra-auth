@@ -45,12 +45,10 @@ export async function registerUserCore(
       };
     }
 
-    const validatedInput = schema(config.auth.password.rules).safeParse(
-      options,
-    );
-    if (!validatedInput.success) {
+    const parsed = schema(config.auth.password.rules).safeParse(options);
+    if (!parsed.success) {
       logger?.warn("registerUser invalid input", {
-        errors: validatedInput.error.errors,
+        errors: parsed.error.errors,
         ip: ipAddress,
       });
       return {
@@ -62,7 +60,7 @@ export async function registerUserCore(
       };
     }
 
-    const { username, email, password } = validatedInput.data;
+    const { username, email, password } = parsed.data;
 
     if (config.protection.rateLimit.endpoints.register.enabled && ipAddress) {
       const limiter = endpoints.register;

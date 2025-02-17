@@ -10,7 +10,7 @@ import {
 import { createTime, transformSession } from "../utils";
 
 const schema = z.object({
-  userId: z.string().min(1),
+  userId: z.string().uuid("Invalid user ID provided."),
 });
 
 export async function createSessionCore(
@@ -33,11 +33,11 @@ export async function createSessionCore(
   } = parsedRequest ?? {};
 
   try {
-    const validatedInput = schema.safeParse(options);
-    if (!validatedInput.success) {
+    const parsed = schema.safeParse(options);
+    if (!parsed.success) {
       logger?.warn("createSession validation failed", {
         reason: "Invalid input",
-        errors: validatedInput.error.errors,
+        errors: parsed.error.errors,
       });
 
       return {
@@ -49,7 +49,7 @@ export async function createSessionCore(
       };
     }
 
-    const { userId } = validatedInput.data;
+    const { userId } = parsed.data;
     const activeSessions = await prisma.session.count({
       where: { userId, isRevoked: false },
     });

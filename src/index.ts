@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import { Ratelimit } from "@upstash/ratelimit";
 import {
+  banUserCore,
   completeAccountDeletionCore,
   completeEmailChangeCore,
   completePasswordResetCore,
@@ -13,6 +14,7 @@ import {
   loginUserCore,
   logoutUserCore,
   registerUserCore,
+  unbanUserCore,
   useVerificationTokenCore,
   validateAndRotateSessionCore,
   validateSessionCore,
@@ -78,6 +80,11 @@ export class AegisAuth {
 
   getConfig() {
     return this.config;
+  }
+
+  async banUser(headers: Headers, options: Parameters<typeof banUserCore>[1]) {
+    const ctx = await this.createContext(headers);
+    return banUserCore(ctx, options);
   }
 
   async completeAccountDeletion(
@@ -168,6 +175,14 @@ export class AegisAuth {
   ) {
     const ctx = await this.createContext(headers);
     return registerUserCore(ctx, options);
+  }
+
+  async unbanUser(
+    headers: Headers,
+    options: Parameters<typeof unbanUserCore>[1],
+  ) {
+    const ctx = await this.createContext(headers);
+    return unbanUserCore(ctx, options);
   }
 
   async useVerificationToken(

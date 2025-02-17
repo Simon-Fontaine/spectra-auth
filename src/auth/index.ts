@@ -1,3 +1,4 @@
+export * from "./banUserCore";
 export * from "./completeAccountDeletionCore";
 export * from "./completeEmailChangeCore";
 export * from "./completePasswordResetCore";
@@ -10,6 +11,7 @@ export * from "./initiatePasswordResetCore";
 export * from "./loginUserCore";
 export * from "./logoutUserCore";
 export * from "./registerUserCore";
+export * from "./unbanUserCore";
 export * from "./useVerificationTokenCore";
 export * from "./validateAndRotateSessionCore";
 export * from "./validateSessionCore";

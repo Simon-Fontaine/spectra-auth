@@ -9,7 +9,7 @@ import {
 import { createTime } from "../utils";
 
 const schema = z.object({
-  userId: z.string().min(1),
+  userId: z.string().uuid("Invalid user ID provided."),
   type: z.string().min(1),
   tokenExpirySeconds: z.number().int().positive().optional(),
 });
@@ -28,10 +28,10 @@ export async function createVerificationCore(
   logger?.info("createVerification called", { userId: options?.userId });
 
   try {
-    const validatedInput = schema.safeParse(options);
-    if (!validatedInput.success) {
+    const parsed = schema.safeParse(options);
+    if (!parsed.success) {
       logger?.warn("createVerification invalid input", {
-        errors: validatedInput.error.errors,
+        errors: parsed.error.errors,
       });
 
       return {
@@ -43,7 +43,7 @@ export async function createVerificationCore(
       };
     }
 
-    const { userId, type, tokenExpirySeconds } = validatedInput.data;
+    const { userId, type, tokenExpirySeconds } = parsed.data;
     const token = await createVerificationToken({ config });
     const expiresAt = createTime(
       tokenExpirySeconds || config.security.verification.tokenExpirySeconds,

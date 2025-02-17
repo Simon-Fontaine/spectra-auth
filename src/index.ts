@@ -33,9 +33,10 @@ export class AegisAuth {
   private endpoints: Endpoints = {};
 
   private async createContext(headers?: Headers): Promise<CoreContext> {
-    const parsedRequest = headers
-      ? await parseRequest(headers, this.config)
-      : undefined;
+    const parsedRequest = await parseRequest(
+      headers || new Headers(),
+      this.config,
+    );
 
     return {
       prisma: this.prisma,
@@ -49,17 +50,22 @@ export class AegisAuth {
     const { rateLimit } = this.config.protection;
     if (!rateLimit.enabled || !rateLimit.redis) return;
 
-    for (const endpoint of defaultEndpoints) {
-      const endpointConfig = rateLimit.endpoints[endpoint];
-      if (!endpointConfig || !endpointConfig.enabled) continue;
-
-      this.endpoints[endpoint] = new Ratelimit({
-        redis: rateLimit.redis,
-        limiter: Ratelimit.slidingWindow(
-          endpointConfig.maxAttempts,
-          `${endpointConfig.window} s`,
-        ),
-        prefix: `${rateLimit.prefix}:${endpoint}`,
+    try {
+      for (const endpoint of defaultEndpoints) {
+        const endpointConfig = rateLimit.endpoints[endpoint];
+        if (!endpointConfig || !endpointConfig.enabled) continue;
+        this.endpoints[endpoint] = new Ratelimit({
+          redis: rateLimit.redis,
+          limiter: Ratelimit.slidingWindow(
+            endpointConfig.maxAttempts,
+            `${endpointConfig.window} s`,
+          ),
+          prefix: `${rateLimit.prefix}:${endpoint}`,
+        });
+      }
+    } catch (error) {
+      this.config.logger?.error("Failed to initialize endpoints.", {
+        error: error instanceof Error ? error.message : String(error),
       });
     }
   }

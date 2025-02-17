@@ -1,17 +1,5 @@
 import type { Ratelimit } from "@upstash/ratelimit";
 
-export interface Endpoints {
-  login?: Ratelimit;
-  register?: Ratelimit;
-  verifyEmail?: Ratelimit;
-  initiatePasswordReset?: Ratelimit;
-  completePasswordReset?: Ratelimit;
-  initiateEmailChange?: Ratelimit;
-  completeEmailChange?: Ratelimit;
-  initiateAccountDeletion?: Ratelimit;
-  completeAccountDeletion?: Ratelimit;
-}
-
 export const defaultEndpoints = [
   "login",
   "register",
@@ -23,3 +11,6 @@ export const defaultEndpoints = [
   "initiateAccountDeletion",
   "completeAccountDeletion",
 ] as const;
+
+export type EndpointName = (typeof defaultEndpoints)[number];
+export type Endpoints = Partial<Record<EndpointName, Ratelimit>>;

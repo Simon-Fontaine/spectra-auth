@@ -27,13 +27,8 @@ import {
   validateSessionCore,
   verifyEmailCore,
 } from "./auth";
-import { buildConfig } from "./config";
-import {
-  type AegisAuthConfig,
-  type CoreContext,
-  type Endpoints,
-  defaultEndpoints,
-} from "./types";
+import { type AegisAuthConfig, buildConfig } from "./config";
+import { type CoreContext, type Endpoints, defaultEndpoints } from "./types";
 import { parseRequest } from "./utils";
 
 export class AegisAuth {

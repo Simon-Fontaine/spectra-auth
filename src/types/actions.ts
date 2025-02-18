@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
-import type { AegisAuthConfig } from "./config";
+import type { AegisAuthConfig } from "../config";
 import type { Endpoints } from "./ratelimit";
 
 export interface CoreContext {

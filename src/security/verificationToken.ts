@@ -1,4 +1,4 @@
-import type { AegisAuthConfig } from "../types";
+import type { AegisAuthConfig } from "../config";
 import { hex } from "./hex";
 import { randomBytes } from "./random";
 

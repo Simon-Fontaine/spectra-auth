@@ -1,6 +1,6 @@
 import { scryptAsync } from "@noble/hashes/scrypt";
 import { getRandomValues } from "uncrypto";
-import type { AegisAuthConfig } from "../types";
+import type { AegisAuthConfig } from "../config";
 import { timingSafeEqual } from "./compare";
 import { decodeHexToBytes, hex } from "./hex";
 

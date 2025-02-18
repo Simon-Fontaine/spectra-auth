@@ -1,6 +1,7 @@
 import { WebServiceClient } from "@maxmind/geoip2-node";
 import { UAParser } from "ua-parser-js";
-import type { AegisAuthConfig, ParsedRequest } from "../types";
+import type { AegisAuthConfig } from "../config";
+import type { ParsedRequest } from "../types";
 import type { SessionDevice, SessionLocation } from "../types/prisma";
 import { getCsrfToken, getSessionToken } from "./cookies";
 

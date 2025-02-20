@@ -1,16 +1,37 @@
-import type { PrismaClient } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 import type { AegisAuthConfig } from "../config";
-import type { PrismaSession, PrismaUser } from "./prisma";
 import type { Endpoints } from "./ratelimit";
+
+export interface AuthenticatedUser
+  extends Omit<
+    Prisma.UserGetPayload<{
+      include: {
+        userRoles: { include: { role: true } };
+        sessions: true;
+        passwordHistory: true;
+      };
+    }>,
+    "passwordHash" | "userRoles" | "passwordHistory" | "sessions"
+  > {
+  roles: string[];
+  permissions: string[];
+  sessions: Prisma.SessionGetPayload<true>[];
+  passwordHistory: Prisma.PasswordHistoryGetPayload<true>[];
+}
 
 export interface AegisContext {
   prisma: PrismaClient;
   config: AegisAuthConfig;
   endpoints: Endpoints;
-  parsedRequest?: ParsedRequest;
-}
-
-export interface ParsedRequest {
-  session?: PrismaSession;
-  user?: PrismaUser;
+  req: {
+    ipAddress?: string;
+    userAgent?: string;
+    csrfToken?: string;
+    headers: Headers;
+  };
+  auth: {
+    isAuthenticated: boolean;
+    user?: AuthenticatedUser | null;
+    session?: Prisma.SessionGetPayload<true> | null;
+  };
 }

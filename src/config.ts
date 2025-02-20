@@ -90,6 +90,12 @@ export interface AegisAuthConfig {
       >
     >;
   };
+  geoLookup: {
+    enabled: boolean;
+    maxmindClientId: string;
+    maxmindLicenseKey: string;
+    maxmindHost: string;
+  };
   email: {
     sendEmailVerification: EmailHandler;
     sendPasswordReset: EmailHandler;
@@ -170,6 +176,12 @@ export function buildConfig(
       redis: undefined,
       prefix: "aegis:rate-limit",
       endpoints: {},
+    },
+    geoLookup: {
+      enabled: true,
+      maxmindClientId: process.env.MAXMIND_CLIENT_ID || "",
+      maxmindLicenseKey: process.env.MAXMIND_LICENSE_KEY || "",
+      maxmindHost: "geolite.info",
     },
     email: {
       sendEmailVerification: async () => {

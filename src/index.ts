@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 import { Ratelimit } from "@upstash/ratelimit";
+import { logoutUserCore } from "./auth";
 import { buildConfig } from "./config";
 import {
   type AegisAuthConfig,
@@ -67,5 +68,10 @@ export class AegisAuth {
 
   getConfig(): AegisAuthConfig {
     return this.config;
+  }
+
+  async logoutUser(headers: Headers) {
+    const ctx = await this.createContext(headers);
+    return logoutUserCore(ctx);
   }
 }

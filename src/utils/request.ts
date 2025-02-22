@@ -140,7 +140,6 @@ export async function processRequest(
       return success(ctx);
     }
 
-    // Verify CSRF if enabled
     if (config.csrf.enabled) {
       const csrfResp = await verifyCsrfToken({
         token: csrfToken || "",
@@ -148,7 +147,6 @@ export async function processRequest(
         config,
       });
       if (!csrfResp.success) {
-        // The HMAC check itself might have failed internally
         return fail(
           csrfResp.error.code || "INVALID_CSRF_TOKEN",
           csrfResp.error.message || "CSRF token verification failed",

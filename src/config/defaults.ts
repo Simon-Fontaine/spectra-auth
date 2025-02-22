@@ -35,7 +35,7 @@ export const defaultLoginConfig: LoginConfig = {
 
 export const defaultPasswordConfig: PasswordConfig = {
   hash: {
-    cost: 10,
+    cost: 16384,
     blockSize: 8,
     parallelization: 1,
     keyLength: 64,

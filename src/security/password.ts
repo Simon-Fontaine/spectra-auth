@@ -1,6 +1,7 @@
 import { scryptAsync } from "@noble/hashes/scrypt";
 import { getRandomValues } from "uncrypto";
 import type { AegisAuthConfig } from "../types";
+import { fail, success } from "../utils/response";
 import { timingSafeEqual } from "./compare";
 import { decodeHexToBytes, hex } from "./hex";
 
@@ -24,9 +25,13 @@ export const hashPassword = async ({
   password,
   config,
 }: { password: string; config: AegisAuthConfig }) => {
-  const salt = hex.encode(getRandomValues(new Uint8Array(16)));
-  const key = await generateKey({ password, salt, config });
-  return `${salt}:${hex.encode(key)}`;
+  try {
+    const salt = hex.encode(getRandomValues(new Uint8Array(16)));
+    const key = await generateKey({ password, salt, config });
+    return success(`${salt}:${hex.encode(key)}`);
+  } catch (error) {
+    return fail("PASSWORD_HASH_ERROR", "Failed to hash password");
+  }
 };
 
 export const verifyPassword = async ({
@@ -34,8 +39,13 @@ export const verifyPassword = async ({
   password,
   config,
 }: { hash: string; password: string; config: AegisAuthConfig }) => {
-  const [salt, key] = hash.split(":");
-  const targetKey = await generateKey({ password, salt, config });
-  const keyBytes = decodeHexToBytes(key);
-  return timingSafeEqual(targetKey, keyBytes);
+  try {
+    const [salt, key] = hash.split(":");
+    const targetKey = await generateKey({ password, salt, config });
+    const keyBytes = decodeHexToBytes(key);
+    const isValid = timingSafeEqual(targetKey, keyBytes);
+    return success(isValid);
+  } catch (error) {
+    return fail("PASSWORD_VERIFICATION_ERROR", "Failed to verify password");
+  }
 };

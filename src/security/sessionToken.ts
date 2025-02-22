@@ -1,4 +1,5 @@
 import type { AegisAuthConfig } from "../types";
+import { fail, success } from "../utils/response";
 import { base64Url } from "./base64";
 import { createHMAC } from "./hmac";
 import { randomBytes } from "./random";
@@ -6,19 +7,26 @@ import { randomBytes } from "./random";
 export async function generateSessionToken({
   config,
 }: { config: AegisAuthConfig }) {
-  const sessionToken = base64Url.encode(
-    randomBytes(config.session.tokenLength),
-  );
+  try {
+    const sessionToken = base64Url.encode(
+      randomBytes(config.session.tokenLength),
+    );
 
-  const sessionTokenHash = await createHMAC("SHA-256", "base64urlnopad").sign(
-    config.session.secret,
-    sessionToken,
-  );
+    const sessionTokenHash = await createHMAC("SHA-256", "base64urlnopad").sign(
+      config.session.secret,
+      sessionToken,
+    );
 
-  return {
-    sessionToken,
-    sessionTokenHash,
-  };
+    return success({
+      sessionToken,
+      sessionTokenHash,
+    });
+  } catch (error) {
+    return fail(
+      "SESSION_TOKEN_GENERATION_ERROR",
+      "Failed to generate session token",
+    );
+  }
 }
 
 export async function signSessionToken({
@@ -28,10 +36,15 @@ export async function signSessionToken({
   sessionToken: string;
   config: AegisAuthConfig;
 }) {
-  return await createHMAC("SHA-256", "base64urlnopad").sign(
-    config.session.secret,
-    sessionToken,
-  );
+  try {
+    const hash = await createHMAC("SHA-256", "base64urlnopad").sign(
+      config.session.secret,
+      sessionToken,
+    );
+    return success(hash);
+  } catch (error) {
+    return fail("SESSION_TOKEN_SIGNING_ERROR", "Failed to sign session token");
+  }
 }
 
 export async function verifySessionToken({
@@ -43,9 +56,17 @@ export async function verifySessionToken({
   sessionTokenHash: string;
   config: AegisAuthConfig;
 }) {
-  return await createHMAC("SHA-256", "base64urlnopad").verify(
-    config.session.secret,
-    sessionToken,
-    sessionTokenHash,
-  );
+  try {
+    const isValid = await createHMAC("SHA-256", "base64urlnopad").verify(
+      config.session.secret,
+      sessionToken,
+      sessionTokenHash,
+    );
+    return success(isValid);
+  } catch (error) {
+    return fail(
+      "SESSION_TOKEN_VERIFICATION_ERROR",
+      "Failed to verify session token",
+    );
+  }
 }

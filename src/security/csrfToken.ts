@@ -1,4 +1,4 @@
-import type { AegisAuthConfig } from "../config";
+import type { AegisAuthConfig } from "../types";
 import { base64Url } from "./base64";
 import { createHMAC } from "./hmac";
 import { randomBytes } from "./random";

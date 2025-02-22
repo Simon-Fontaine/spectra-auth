@@ -1,6 +1,6 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
-import type { AegisAuthConfig } from "../config";
-import type { Endpoints } from "./ratelimit";
+import type { AegisAuthConfig } from "../types";
+import type { Endpoints } from "./rateLimit";
 
 export interface AuthenticatedUser
   extends Omit<

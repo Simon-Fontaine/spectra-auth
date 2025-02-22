@@ -1,5 +1,5 @@
 import { parse as parseCookie, serialize as serializeCookie } from "cookie";
-import type { AegisAuthConfig } from "../config";
+import type { AegisAuthConfig } from "../types";
 
 export function createSessionCookie(
   sessionToken: string,

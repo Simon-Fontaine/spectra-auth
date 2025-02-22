@@ -1,4 +1,4 @@
-import type { AegisAuthConfig } from "../types";
+import type { AegisAuthConfig, AegisResponse } from "../types";
 import { fail, success } from "../utils/response";
 import { base64Url } from "./base64";
 import { createHMAC } from "./hmac";
@@ -6,11 +6,22 @@ import { randomBytes } from "./random";
 
 export async function generateSessionToken({
   config,
-}: { config: AegisAuthConfig }) {
+}: { config: AegisAuthConfig }): Promise<
+  AegisResponse<{
+    sessionToken: string;
+    sessionTokenHash: string;
+  }>
+> {
   try {
-    const sessionToken = base64Url.encode(
-      randomBytes(config.session.tokenLength),
-    );
+    const bytesResponse = randomBytes(config.verification.tokenLength);
+    if (!bytesResponse.success) {
+      return fail(
+        "VERIFICATION_TOKEN_BYTES_ERROR",
+        bytesResponse.error.message,
+      );
+    }
+
+    const sessionToken = base64Url.encode(bytesResponse.data);
 
     const sessionTokenHash = await createHMAC("SHA-256", "base64urlnopad").sign(
       config.session.secret,
@@ -35,7 +46,7 @@ export async function signSessionToken({
 }: {
   sessionToken: string;
   config: AegisAuthConfig;
-}) {
+}): Promise<AegisResponse<string>> {
   try {
     const hash = await createHMAC("SHA-256", "base64urlnopad").sign(
       config.session.secret,
@@ -55,7 +66,7 @@ export async function verifySessionToken({
   sessionToken: string;
   sessionTokenHash: string;
   config: AegisAuthConfig;
-}) {
+}): Promise<AegisResponse<boolean>> {
   try {
     const isValid = await createHMAC("SHA-256", "base64urlnopad").verify(
       config.session.secret,

@@ -1,8 +1,14 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { signSessionToken, verifyCsrfToken } from "../security";
 import type { AegisAuthConfig } from "../types";
-import type { AegisContext, AuthenticatedUser, Endpoints } from "../types";
+import type {
+  AegisContext,
+  AegisResponse,
+  AuthenticatedUser,
+  Endpoints,
+} from "../types";
 import { getCsrfToken, getSessionToken } from "./cookies";
+import { fail, success } from "./response";
 
 interface RequestHeaders {
   ipAddress?: string;
@@ -71,28 +77,15 @@ export async function processRequest(
   config: AegisAuthConfig,
   endpoints: Endpoints,
   headers: Headers,
-): Promise<AegisContext> {
+): Promise<AegisResponse<AegisContext>> {
   try {
     const { ipAddress, userAgent, csrfToken, sessionToken } = getHeaders(
       headers,
       config,
     );
-    let isAuthenticated = false;
-    let user: AuthenticatedUser | null = null;
-    let session: Prisma.SessionGetPayload<{
-      include: {
-        user: {
-          include: {
-            userRoles: { include: { role: true } };
-            sessions: true;
-            passwordHistory: true;
-          };
-        };
-      };
-    }> | null;
 
     if (!sessionToken) {
-      return createContext({
+      const ctx = createContext({
         prisma,
         config,
         endpoints,
@@ -101,10 +94,16 @@ export async function processRequest(
         userAgent,
         csrfToken,
       });
+      return success(ctx);
     }
 
-    const tokenHash = await signSessionToken({ sessionToken, config });
-    session = (await prisma.session.findUnique({
+    const hashResp = await signSessionToken({ sessionToken, config });
+    if (!hashResp.success) {
+      return fail(hashResp.error.code, hashResp.error.message);
+    }
+
+    const tokenHash = hashResp.data;
+    const session = (await prisma.session.findUnique({
       where: { tokenHash },
       include: {
         user: {
@@ -129,7 +128,7 @@ export async function processRequest(
 
     if (!session || session.isRevoked || session.expiresAt <= new Date()) {
       config.logger?.debug("Invalid or expired session", { ipAddress });
-      return createContext({
+      const ctx = createContext({
         prisma,
         config,
         endpoints,
@@ -138,18 +137,27 @@ export async function processRequest(
         userAgent,
         csrfToken,
       });
+      return success(ctx);
     }
 
+    // Verify CSRF if enabled
     if (config.csrf.enabled) {
-      const isCsrfValid = await verifyCsrfToken({
+      const csrfResp = await verifyCsrfToken({
         token: csrfToken || "",
         hash: session.csrfTokenHash,
         config,
       });
-
+      if (!csrfResp.success) {
+        // The HMAC check itself might have failed internally
+        return fail(
+          csrfResp.error.code || "INVALID_CSRF_TOKEN",
+          csrfResp.error.message || "CSRF token verification failed",
+        );
+      }
+      const isCsrfValid = csrfResp.data;
       if (!isCsrfValid) {
         config.logger?.warn("Invalid CSRF token", { ipAddress, sessionToken });
-        throw new Error("Invalid CSRF token");
+        return fail("INVALID_CSRF_TOKEN", "Invalid CSRF token");
       }
     }
 
@@ -159,7 +167,7 @@ export async function processRequest(
         ipAddress,
         userId: session.userId,
       });
-      return createContext({
+      const ctx = createContext({
         prisma,
         config,
         endpoints,
@@ -168,6 +176,7 @@ export async function processRequest(
         userAgent,
         csrfToken,
       });
+      return success(ctx);
     }
 
     const { passwordHash, userRoles, ...safeUser } = userResult;
@@ -176,16 +185,15 @@ export async function processRequest(
       new Set(userRoles.flatMap((ur) => ur.role.permissions || [])),
     );
 
-    user = {
+    const authUser: AuthenticatedUser = {
       ...safeUser,
       roles,
       permissions,
       sessions: userResult.sessions,
       passwordHistory: userResult.passwordHistory,
     };
-    isAuthenticated = true;
 
-    return createContext({
+    const ctx = createContext({
       prisma,
       config,
       endpoints,
@@ -193,10 +201,11 @@ export async function processRequest(
       ipAddress,
       userAgent,
       csrfToken,
-      isAuthenticated,
-      user,
+      isAuthenticated: true,
+      user: authUser,
       session,
     });
+    return success(ctx);
   } catch (error) {
     config.logger?.error("Error processing request", {
       error: error instanceof Error ? error.message : "Unknown error",
@@ -204,6 +213,6 @@ export async function processRequest(
         headers.get("x-forwarded-for")?.split(",")[0].trim() ||
         headers.get("x-real-ip"),
     });
-    throw error;
+    return fail("PROCESS_REQUEST_ERROR", "Error processing request");
   }
 }

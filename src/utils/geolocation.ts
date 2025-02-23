@@ -5,7 +5,7 @@ import type { SessionDevice, SessionLocation } from "../types";
 import type { AegisResponse } from "../types";
 import { fail, success } from "./response";
 
-export async function geoLookup(
+export async function getGeolocation(
   config: AegisAuthConfig,
   ipAddress?: string,
   userAgent?: string,

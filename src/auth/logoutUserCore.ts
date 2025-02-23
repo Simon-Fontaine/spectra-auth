@@ -1,9 +1,9 @@
 import type { AegisContext, AegisResponse } from "../types";
-import { fail, success } from "../utils";
+import { fail, getClearSessionCookies, revokeSession, success } from "../utils";
 
 export async function logoutUserCore(
   ctx: AegisContext,
-): Promise<AegisResponse<boolean>> {
+): Promise<AegisResponse<{ cleared: boolean; cookies: string[] }>> {
   const { config, prisma, req, auth } = ctx;
   const { logger } = config;
 
@@ -19,14 +19,13 @@ export async function logoutUserCore(
       return fail("NO_SESSION_ERROR", "No session found.");
     }
 
-    await prisma.session.update({
-      where: { id: session.id },
-      data: { isRevoked: true },
-    });
+    await revokeSession(prisma, session.id);
 
     logger?.debug("Session revoked", { ip: req.ipAddress });
 
-    return success(true);
+    const { sessionCookie, csrfCookie } = getClearSessionCookies(config);
+
+    return success({ cleared: true, cookies: [sessionCookie, csrfCookie] });
   } catch (error) {
     logger?.error("Failed to logout user", { error, ip: req.ipAddress });
     return fail("LOGOUT_ERROR", "Failed to logout user.");

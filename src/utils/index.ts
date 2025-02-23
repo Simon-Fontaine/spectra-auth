@@ -1,5 +1,6 @@
 export * from "./cookies";
-export * from "./geoLookup";
+export * from "./geolocation";
 export * from "./response";
+export * from "./sessions";
 export * from "./request";
 export * from "./time";

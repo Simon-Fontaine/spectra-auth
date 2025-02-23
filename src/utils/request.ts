@@ -1,5 +1,5 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
-import { signSessionToken, verifyCsrfToken } from "../security";
+import { verifyCsrfToken } from "../security";
 import type { AegisAuthConfig } from "../types";
 import type {
   AegisContext,
@@ -9,6 +9,10 @@ import type {
 } from "../types";
 import { getCsrfToken, getSessionToken } from "./cookies";
 import { fail, success } from "./response";
+import {
+  type SessionValidationResult,
+  validateAndRotateSession,
+} from "./sessions";
 
 interface RequestHeaders {
   ipAddress?: string;
@@ -29,17 +33,11 @@ function getHeaders(headers: Headers, config: AegisAuthConfig): RequestHeaders {
   };
 }
 
-interface ContextParams {
-  prisma: PrismaClient;
-  config: AegisAuthConfig;
-  endpoints: Endpoints;
-  headers: Headers;
-  ipAddress?: string;
-  userAgent?: string;
-  csrfToken?: string;
-  isAuthenticated?: boolean;
-  user?: AuthenticatedUser | null;
-  session?: Prisma.SessionGetPayload<true> | null;
+interface ExtendedAegisContext extends AegisContext {
+  cookies?: {
+    sessionCookie: string;
+    csrfCookie: string;
+  };
 }
 
 function createContext({
@@ -53,7 +51,18 @@ function createContext({
   isAuthenticated = false,
   user = null,
   session = null,
-}: ContextParams): AegisContext {
+}: {
+  prisma: PrismaClient;
+  config: AegisAuthConfig;
+  endpoints: Endpoints;
+  headers: Headers;
+  ipAddress?: string;
+  userAgent?: string;
+  csrfToken?: string;
+  isAuthenticated?: boolean;
+  user?: AuthenticatedUser | null;
+  session?: Prisma.SessionGetPayload<true> | null;
+}): ExtendedAegisContext {
   return {
     prisma,
     config,
@@ -77,7 +86,7 @@ export async function processRequest(
   config: AegisAuthConfig,
   endpoints: Endpoints,
   headers: Headers,
-): Promise<AegisResponse<AegisContext>> {
+): Promise<AegisResponse<ExtendedAegisContext>> {
   try {
     const { ipAddress, userAgent, csrfToken, sessionToken } = getHeaders(
       headers,
@@ -97,37 +106,15 @@ export async function processRequest(
       return success(ctx);
     }
 
-    const hashResp = await signSessionToken({ sessionToken, config });
-    if (!hashResp.success) {
-      return fail(hashResp.error.code, hashResp.error.message);
-    }
-
-    const tokenHash = hashResp.data;
-    const session = (await prisma.session.findUnique({
-      where: { tokenHash },
-      include: {
-        user: {
-          include: {
-            userRoles: { include: { role: true } },
-            sessions: true,
-            passwordHistory: true,
-          },
-        },
-      },
-    })) as Prisma.SessionGetPayload<{
-      include: {
-        user: {
-          include: {
-            userRoles: { include: { role: true } };
-            sessions: true;
-            passwordHistory: true;
-          };
-        };
-      };
-    }> | null;
-
-    if (!session || session.isRevoked || session.expiresAt <= new Date()) {
-      config.logger?.debug("Invalid or expired session", { ipAddress });
+    let validationResult: SessionValidationResult;
+    try {
+      validationResult = await validateAndRotateSession(
+        prisma,
+        config,
+        sessionToken,
+      );
+    } catch (error) {
+      config.logger?.debug("Session invalid or expired", { ipAddress });
       const ctx = createContext({
         prisma,
         config,
@@ -140,30 +127,32 @@ export async function processRequest(
       return success(ctx);
     }
 
-    if (config.csrf.enabled) {
+    if (config.csrf.enabled && !validationResult.rotated) {
       const csrfResp = await verifyCsrfToken({
         token: csrfToken || "",
-        hash: session.csrfTokenHash,
+        hash: validationResult.session.csrfTokenHash,
         config,
       });
-      if (!csrfResp.success) {
-        return fail(
-          csrfResp.error.code || "INVALID_CSRF_TOKEN",
-          csrfResp.error.message || "CSRF token verification failed",
-        );
-      }
-      const isCsrfValid = csrfResp.data;
-      if (!isCsrfValid) {
+      if (!csrfResp.success || !csrfResp.data) {
         config.logger?.warn("Invalid CSRF token", { ipAddress, sessionToken });
-        return fail("INVALID_CSRF_TOKEN", "Invalid CSRF token");
+        const ctx = createContext({
+          prisma,
+          config,
+          endpoints,
+          headers,
+          ipAddress,
+          userAgent,
+          csrfToken,
+        });
+        return success(ctx);
       }
     }
 
-    const userResult = session.user;
+    const userResult = validationResult.session.user;
     if (!userResult || userResult.isBanned) {
       config.logger?.warn("User not found or banned", {
         ipAddress,
-        userId: session.userId,
+        userId: validationResult.session.userId,
       });
       const ctx = createContext({
         prisma,
@@ -182,7 +171,6 @@ export async function processRequest(
     const permissions = Array.from(
       new Set(userRoles.flatMap((ur) => ur.role.permissions || [])),
     );
-
     const authUser: AuthenticatedUser = {
       ...safeUser,
       roles,
@@ -198,11 +186,21 @@ export async function processRequest(
       headers,
       ipAddress,
       userAgent,
-      csrfToken,
+      csrfToken: validationResult.rotated
+        ? validationResult.csrfToken
+        : csrfToken,
       isAuthenticated: true,
       user: authUser,
-      session,
+      session: validationResult.session,
     });
+
+    if (validationResult.rotated) {
+      (ctx as ExtendedAegisContext).cookies = {
+        sessionCookie: validationResult.sessionCookie,
+        csrfCookie: validationResult.csrfCookie,
+      };
+    }
+
     return success(ctx);
   } catch (error) {
     config.logger?.error("Error processing request", {

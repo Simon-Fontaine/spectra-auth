@@ -1,11 +1,10 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
-import type { InputJsonValue } from "@prisma/client/runtime/library";
 import { generateCsrfToken } from "../security/csrfToken";
 import {
   generateSessionToken,
   signSessionToken,
 } from "../security/sessionToken";
-import type { AegisAuthConfig } from "../types";
+import type { AegisAuthConfig, SessionDevice, SessionLocation } from "../types";
 import {
   clearCsrfCookie,
   clearSessionCookie,
@@ -18,8 +17,8 @@ export async function createSession(
   config: AegisAuthConfig,
   userId: string,
   ipAddress?: string,
-  locationData?: InputJsonValue,
-  deviceData?: InputJsonValue,
+  locationData?: SessionLocation,
+  deviceData?: SessionDevice,
 ): Promise<{
   session: Prisma.SessionGetPayload<{
     include: {

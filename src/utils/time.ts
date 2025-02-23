@@ -1,7 +1,7 @@
 type TimeFormat = "ms" | "s" | "m" | "h" | "d" | "w" | "y";
 type Time = `${number}${TimeFormat}`;
 
-interface TimeObject {
+export interface TimeObject {
   t: Time;
   value: number;
   tFormat: TimeFormat;

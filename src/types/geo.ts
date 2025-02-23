@@ -1,4 +1,5 @@
 export interface SessionLocation {
+  [key: string]: string | number | null | undefined;
   country?: string | null;
   region?: string | null;
   city?: string | null;
@@ -7,6 +8,7 @@ export interface SessionLocation {
 }
 
 export interface SessionDevice {
+  [key: string]: string | null | undefined;
   name?: string | null;
   type?: string | null;
   browser?: string | null;

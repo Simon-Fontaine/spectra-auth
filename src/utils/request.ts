@@ -1,7 +1,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { verifyCsrfToken } from "../security";
-import type { AegisAuthConfig } from "../types";
 import type {
+  AegisAuthConfig,
   AegisContext,
   AegisResponse,
   AuthenticatedUser,
@@ -14,14 +14,7 @@ import {
   validateAndRotateSession,
 } from "./sessions";
 
-interface RequestHeaders {
-  ipAddress?: string;
-  userAgent?: string;
-  csrfToken?: string;
-  sessionToken?: string;
-}
-
-function getHeaders(headers: Headers, config: AegisAuthConfig): RequestHeaders {
+function getHeaders(headers: Headers, config: AegisAuthConfig) {
   return {
     ipAddress:
       headers.get("x-forwarded-for")?.split(",")[0].trim() ||
@@ -171,7 +164,7 @@ export async function processRequest(
     const permissions = Array.from(
       new Set(userRoles.flatMap((ur) => ur.role.permissions || [])),
     );
-    const authUser: AuthenticatedUser = {
+    const authUser = {
       ...safeUser,
       roles,
       permissions,

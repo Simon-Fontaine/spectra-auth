@@ -10,10 +10,8 @@ export function timingSafeEqual(
   }
 
   let result = 0;
-
   for (let i = 0; i < aBuffer.length; i++) {
     result |= aBuffer[i] ^ bBuffer[i];
   }
-
   return result === 0;
 }

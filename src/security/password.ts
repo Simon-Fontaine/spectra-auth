@@ -9,9 +9,11 @@ async function generateKey({
   password,
   salt,
   config,
-}: { password: string; salt: string; config: AegisAuthConfig }): Promise<
-  AegisResponse<Uint8Array>
-> {
+}: {
+  password: string;
+  salt: string;
+  config: AegisAuthConfig;
+}): Promise<AegisResponse<Uint8Array>> {
   const { cost, blockSize, parallelization, keyLength } = config.password.hash;
 
   try {
@@ -34,9 +36,10 @@ async function generateKey({
 export const hashPassword = async ({
   password,
   config,
-}: { password: string; config: AegisAuthConfig }): Promise<
-  AegisResponse<string>
-> => {
+}: {
+  password: string;
+  config: AegisAuthConfig;
+}): Promise<AegisResponse<string>> => {
   try {
     const salt = hex.encode(getRandomValues(new Uint8Array(16)));
     const keyResponse = await generateKey({ password, salt, config });
@@ -55,9 +58,11 @@ export const verifyPassword = async ({
   hash,
   password,
   config,
-}: { hash: string; password: string; config: AegisAuthConfig }): Promise<
-  AegisResponse<boolean>
-> => {
+}: {
+  hash: string;
+  password: string;
+  config: AegisAuthConfig;
+}): Promise<AegisResponse<boolean>> => {
   try {
     const [salt, key] = hash.split(":");
     const targetKeyResponse = await generateKey({ password, salt, config });

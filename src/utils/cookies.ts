@@ -6,13 +6,11 @@ export function createSessionCookie(
   config: AegisAuthConfig,
 ) {
   const { name, ...cookieOptions } = config.session.cookie;
-
   return serializeCookie(name, sessionToken, cookieOptions);
 }
 
 export function clearSessionCookie(config: AegisAuthConfig) {
   const { name, ...cookieOptions } = config.session.cookie;
-
   return serializeCookie(name, "", {
     ...cookieOptions,
     maxAge: 0,
@@ -24,23 +22,19 @@ export function getSessionToken(
   config: AegisAuthConfig,
 ): string | undefined {
   const cookie = headers.get("cookie");
-
-  if (!cookie) return;
+  if (!cookie) return undefined;
 
   const cookies = parseCookie(cookie);
-
   return cookies[config.session.cookie.name];
 }
 
 export function createCsrfCookie(csrfToken: string, config: AegisAuthConfig) {
   const { name, ...cookieOptions } = config.csrf.cookie;
-
   return serializeCookie(name, csrfToken, cookieOptions);
 }
 
 export function clearCsrfCookie(config: AegisAuthConfig) {
   const { name, ...cookieOptions } = config.csrf.cookie;
-
   return serializeCookie(name, "", {
     ...cookieOptions,
     maxAge: 0,
@@ -49,10 +43,8 @@ export function clearCsrfCookie(config: AegisAuthConfig) {
 
 export function getCsrfToken(headers: Headers, config: AegisAuthConfig) {
   const cookie = headers.get("cookie");
-
-  if (!cookie) return;
+  if (!cookie) return undefined;
 
   const cookies = parseCookie(cookie);
-
   return cookies[config.csrf.cookie.name];
 }

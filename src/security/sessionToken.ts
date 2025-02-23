@@ -6,7 +6,9 @@ import { randomBytes } from "./random";
 
 export async function generateSessionToken({
   config,
-}: { config: AegisAuthConfig }): Promise<
+}: {
+  config: AegisAuthConfig;
+}): Promise<
   AegisResponse<{
     sessionToken: string;
     sessionTokenHash: string;

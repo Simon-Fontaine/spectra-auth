@@ -158,7 +158,7 @@ export async function validateAndRotateSession(
       newCsrfResp.data;
 
     const updatedSession = await prisma.$transaction(async (tx) => {
-      return await tx.session.update({
+      return tx.session.update({
         where: { id: session.id },
         include: {
           user: {

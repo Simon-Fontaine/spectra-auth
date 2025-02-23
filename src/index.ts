@@ -15,19 +15,16 @@ export class AegisAuth {
   private prisma: PrismaClient;
   private endpoints: Endpoints = {};
 
-  private async createContext(headers: Headers): Promise<AegisContext> {
-    const response = await processRequest(
-      this.prisma,
-      this.config,
-      this.endpoints,
-      headers,
-    );
+  constructor(prisma: PrismaClient, userConfig?: Partial<AegisAuthConfig>) {
+    this.prisma = prisma;
 
+    const response = buildConfig(userConfig ?? {});
     if (!response.success) {
-      throw new Error(`Failed to create context: ${response.error.message}`);
+      throw new Error(`Failed to create config: ${response.error.message}`);
     }
 
-    return response.data;
+    this.config = response.data;
+    this.initializeEndpoints();
   }
 
   private initializeEndpoints() {
@@ -54,16 +51,19 @@ export class AegisAuth {
     }
   }
 
-  constructor(prisma: PrismaClient, userConfig?: Partial<AegisAuthConfig>) {
-    this.prisma = prisma;
+  private async createContext(headers: Headers): Promise<AegisContext> {
+    const response = await processRequest(
+      this.prisma,
+      this.config,
+      this.endpoints,
+      headers,
+    );
 
-    const response = buildConfig(userConfig ?? {});
     if (!response.success) {
-      throw new Error(`Failed to create config: ${response.error.message}`);
+      throw new Error(`Failed to create context: ${response.error.message}`);
     }
 
-    this.config = response.data;
-    this.initializeEndpoints();
+    return response.data;
   }
 
   getConfig(): AegisAuthConfig {

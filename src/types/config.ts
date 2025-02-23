@@ -1,6 +1,6 @@
 import type { Redis } from "@upstash/redis";
-import type { EndpointName } from "../types";
-import type { AegisContext } from "../types/context";
+import type { AegisContext } from "./context";
+import type { EndpointName } from "./rateLimit";
 
 export type CookieOptions = {
   name: string;

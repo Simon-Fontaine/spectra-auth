@@ -1,8 +1,11 @@
 import { WebServiceClient } from "@maxmind/geoip2-node";
 import { UAParser } from "ua-parser-js";
-import type { AegisAuthConfig } from "../types";
-import type { SessionDevice, SessionLocation } from "../types";
-import type { AegisResponse } from "../types";
+import type {
+  AegisAuthConfig,
+  AegisResponse,
+  SessionDevice,
+  SessionLocation,
+} from "../types";
 import { fail, success } from "./response";
 
 export async function getGeolocation(

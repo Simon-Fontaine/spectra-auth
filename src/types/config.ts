@@ -67,6 +67,7 @@ export interface SessionConfig {
   tokenLength: number;
   refreshIntervalSeconds: number;
   absoluteMaxLifetimeSeconds: number;
+  rotationFraction: number;
   cookie: CookieOptions;
 }
 

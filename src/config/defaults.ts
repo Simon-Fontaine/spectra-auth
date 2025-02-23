@@ -55,6 +55,7 @@ export const defaultSessionConfig: SessionConfig = {
   tokenLength: 64,
   refreshIntervalSeconds: createTime(1, "h").toSeconds(),
   absoluteMaxLifetimeSeconds: createTime(30, "d").toSeconds(),
+  rotationFraction: 0.5,
   cookie: {
     name: "aegis.session",
     maxAgeSeconds: createTime(7, "d").toSeconds(),

@@ -133,13 +133,16 @@ export async function validateAndRotateSession(
   const lastUpdated = session.updatedAt.getTime();
   const now = Date.now();
   const refreshIntervalMs = config.session.refreshIntervalSeconds * 1000;
+  const rotationThreshold =
+    refreshIntervalMs * (config.session.rotationFraction ?? 0.5);
+
   let rotated = false;
   let newSessionToken = currentSessionToken;
   let newCsrfToken = "";
   let newSessionCookie = "";
   let newCsrfCookie = "";
 
-  if (now - lastUpdated > refreshIntervalMs / 2) {
+  if (now - lastUpdated > rotationThreshold) {
     const newSessionResp = await generateSessionToken({ config });
     if (!newSessionResp.success) {
       throw new Error(newSessionResp.error.message);
@@ -154,24 +157,26 @@ export async function validateAndRotateSession(
     const { csrfToken: rotatedCsrf, csrfTokenHash: rotatedCsrfHash } =
       newCsrfResp.data;
 
-    const updatedSession = await prisma.session.update({
-      where: { id: session.id },
-      include: {
-        user: {
-          include: {
-            userRoles: { include: { role: true } },
-            sessions: true,
-            passwordHistory: true,
+    const updatedSession = await prisma.$transaction(async (tx) => {
+      return await tx.session.update({
+        where: { id: session.id },
+        include: {
+          user: {
+            include: {
+              userRoles: { include: { role: true } },
+              sessions: true,
+              passwordHistory: true,
+            },
           },
         },
-      },
-      data: {
-        tokenHash: rotatedTokenHash,
-        csrfTokenHash: rotatedCsrfHash,
-        expiresAt: new Date(
-          Date.now() + config.session.absoluteMaxLifetimeSeconds * 1000,
-        ),
-      },
+        data: {
+          tokenHash: rotatedTokenHash,
+          csrfTokenHash: rotatedCsrfHash,
+          expiresAt: new Date(
+            Date.now() + config.session.absoluteMaxLifetimeSeconds * 1000,
+          ),
+        },
+      });
     });
 
     newSessionToken = rotatedToken;

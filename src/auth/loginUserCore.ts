@@ -61,7 +61,10 @@ export async function loginUserCore(
         logger?.error("loginUserCore - rate-limit endpoint missing", {
           ipAddress: req.ipAddress,
         });
-        return fail("LOGIN_RATE_LIMIT_ERROR", "Server misconfiguration.");
+        return fail(
+          "LOGIN_RATE_LIMIT_ERROR",
+          "Server misconfiguration. Please try again later.",
+        );
       }
       const limit = await limitIpAddress(req.ipAddress, limiter);
       if (!limit.success) {

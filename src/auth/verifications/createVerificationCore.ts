@@ -1,8 +1,8 @@
 import { type Verification, VerificationType } from "@prisma/client";
 import { z } from "zod";
-import { createVerificationToken } from "../security";
-import type { AegisContext, AegisResponse } from "../types";
-import { createTime, fail, success } from "../utils";
+import { createVerificationToken } from "../../security";
+import type { AegisContext, AegisResponse } from "../../types";
+import { createTime, fail, success } from "../../utils";
 
 interface VerificationRequest {
   userId: string;

@@ -8,7 +8,7 @@ import {
   getPasswordSchema,
   getUsernameSchema,
 } from "../validations";
-import { createVerificationCore } from "./createVerificationCore";
+import { createVerificationCore } from "./verifications";
 
 interface RegisterRequest {
   username: string;
@@ -30,7 +30,7 @@ export async function registerUserCore(
   const { config, prisma, req, endpoints } = ctx;
   const { logger } = config;
 
-  logger?.debug("registerUserCore invoked", {
+  logger?.debug("registerUserCore - invoked", {
     username: options.username,
     email: options.email,
     ipAddress: req.ipAddress,
@@ -38,7 +38,7 @@ export async function registerUserCore(
 
   try {
     if (!config.registration.enabled) {
-      logger?.warn("registerUserCore registration disabled", {
+      logger?.warn("registerUserCore - registration disabled", {
         ipAddress: req.ipAddress,
       });
       return fail(
@@ -49,7 +49,7 @@ export async function registerUserCore(
 
     const parsed = schema(config.password.rules).safeParse(options);
     if (!parsed.success) {
-      logger?.debug("registerUserCore validation error", {
+      logger?.debug("registerUserCore - validation error", {
         issues: parsed.error.issues,
         ipAddress: req.ipAddress,
       });
@@ -114,7 +114,7 @@ export async function registerUserCore(
       }
       const limit = await limitIpAddress(req.ipAddress, limiter);
       if (!limit.success) {
-        logger?.warn("registerUserCore rate limit exceeded", {
+        logger?.warn("registerUserCore - rate limit exceeded", {
           ipAddress: req.ipAddress,
         });
         return fail(
@@ -128,7 +128,7 @@ export async function registerUserCore(
       where: { username },
     });
     if (existingUsername) {
-      logger?.warn("registerUserCore username exists", {
+      logger?.warn("registerUserCore - username exists", {
         username,
         ipAddress: req.ipAddress,
       });
@@ -137,7 +137,7 @@ export async function registerUserCore(
 
     const existingEmail = await prisma.user.findUnique({ where: { email } });
     if (existingEmail) {
-      logger?.warn("registerUserCore email exists", {
+      logger?.warn("registerUserCore - email exists", {
         email,
         ipAddress: req.ipAddress,
       });
@@ -146,7 +146,7 @@ export async function registerUserCore(
 
     const hashedPasswordResp = await hashPassword({ password, config });
     if (!hashedPasswordResp.success) {
-      logger?.error("registerUserCore failed to hash password", {
+      logger?.error("registerUserCore - failed to hash password", {
         error: hashedPasswordResp.error.message,
         ipAddress: req.ipAddress,
       });
@@ -168,7 +168,7 @@ export async function registerUserCore(
       });
 
       if (!verification.success) {
-        logger?.error("registerUserCore verification creation failed", {
+        logger?.error("registerUserCore - verification creation failed", {
           error: verification.error.message,
           userId: user.id,
           ipAddress: req.ipAddress,
@@ -196,7 +196,7 @@ export async function registerUserCore(
     const { passwordHash, ...rest } = user;
     return success(rest);
   } catch (error) {
-    logger?.error("registerUserCore unexpected failure", {
+    logger?.error("registerUserCore - unexpected failure", {
       error: error instanceof Error ? error.message : String(error),
       ipAddress: req.ipAddress,
     });

@@ -2,6 +2,11 @@ import type { Redis } from "@upstash/redis";
 import type { AegisContext } from "./context";
 import type { EndpointName } from "./rateLimit";
 
+export interface EnhancedCookieOptions {
+  partitioned?: boolean;
+  priority?: "low" | "medium" | "high";
+}
+
 export type CookieOptions = {
   name: string;
   maxAgeSeconds: number;
@@ -80,8 +85,10 @@ export interface SessionConfig {
   tokenLength: number;
   refreshIntervalSeconds: number;
   absoluteMaxLifetimeSeconds: number;
+  idleTimeoutSeconds?: number;
   rotationFraction: number;
   cookie: CookieOptions;
+  enhancedCookieOptions?: EnhancedCookieOptions;
   fingerprintOptions?: FingerprintOptions;
 }
 
@@ -90,6 +97,7 @@ export interface CsrfConfig {
   secret: string;
   tokenLength: number;
   cookie: CookieOptions;
+  enhancedCookieOptions?: EnhancedCookieOptions;
 }
 
 export interface VerificationConfig {

@@ -11,6 +11,7 @@ import {
   createCsrfCookie,
   createSessionCookie,
 } from "./cookies";
+import { generateBrowserFingerprint } from "./fingerprint";
 
 export async function createSession(
   prisma: PrismaClient,
@@ -19,6 +20,7 @@ export async function createSession(
   ipAddress?: string,
   locationData?: SessionLocation,
   deviceData?: SessionDevice,
+  headers?: Headers,
 ): Promise<{
   session: Prisma.SessionGetPayload<{
     include: {
@@ -52,6 +54,21 @@ export async function createSession(
     Date.now() + config.session.absoluteMaxLifetimeSeconds * 1000,
   );
 
+  // Generate browser fingerprint if enabled
+  let fingerprint: string | undefined;
+  if (config.session.fingerprintOptions?.enabled && headers) {
+    const fingerprintResp = await generateBrowserFingerprint({
+      ip: ipAddress,
+      userAgent: deviceData?.userAgent || undefined,
+      headers,
+      config,
+    });
+
+    if (fingerprintResp.success) {
+      fingerprint = fingerprintResp.data;
+    }
+  }
+
   const session = await prisma.session.create({
     include: {
       user: {
@@ -70,6 +87,7 @@ export async function createSession(
       ipAddress,
       deviceData,
       locationData,
+      metadata: fingerprint ? { fingerprint } : undefined,
     },
   });
 
@@ -102,6 +120,7 @@ export async function validateAndRotateSession(
   prisma: PrismaClient,
   config: AegisAuthConfig,
   currentSessionToken: string,
+  headers?: Headers,
 ): Promise<SessionValidationResult> {
   const signResp = await signSessionToken({
     sessionToken: currentSessionToken,
@@ -129,6 +148,73 @@ export async function validateAndRotateSession(
     throw new Error("Invalid or expired session");
   }
 
+  // Check for idle timeout if configured
+  if (config.session.idleTimeoutSeconds) {
+    const lastActivity = session.updatedAt.getTime();
+    const now = Date.now();
+    const idleTimeoutMs = config.session.idleTimeoutSeconds * 1000;
+
+    if (now - lastActivity > idleTimeoutMs) {
+      await prisma.session.update({
+        where: { id: session.id },
+        data: { isRevoked: true },
+      });
+      throw new Error("Session expired due to inactivity");
+    }
+  }
+
+  // Validate fingerprint if enabled
+  if (config.session.fingerprintOptions?.enabled && headers) {
+    // Get stored fingerprint from session metadata
+    const sessionMetadata = session.metadata as Record<string, any> | null;
+    const storedFingerprint = sessionMetadata?.fingerprint;
+
+    // Generate current fingerprint
+    const fingerprintResp = await generateBrowserFingerprint({
+      ip: session.ipAddress || undefined,
+      userAgent: (session.deviceData as SessionDevice | null)?.userAgent,
+      headers,
+      config,
+    });
+
+    if (fingerprintResp.success) {
+      const currentFingerprint = fingerprintResp.data;
+
+      // No fingerprint stored yet but one is now available
+      if (
+        !storedFingerprint &&
+        !config.session.fingerprintOptions.strictValidation
+      ) {
+        // Update session with new fingerprint
+        await prisma.session.update({
+          where: { id: session.id },
+          data: {
+            metadata: {
+              ...sessionMetadata,
+              fingerprint: currentFingerprint,
+            },
+          },
+        });
+      }
+      // Validate existing fingerprint
+      else if (storedFingerprint && storedFingerprint !== currentFingerprint) {
+        if (config.session.fingerprintOptions.strictValidation) {
+          // In strict mode, revoke the session and throw error
+          await prisma.session.update({
+            where: { id: session.id },
+            data: { isRevoked: true },
+          });
+          throw new Error("Session fingerprint mismatch");
+        }
+        // In non-strict mode we just log the mismatch but allow the session
+        config.logger?.warn("Session fingerprint mismatch detected", {
+          sessionId: session.id,
+          userId: session.userId,
+        });
+      }
+    }
+  }
+
   const lastUpdated = session.updatedAt.getTime();
   const now = Date.now();
   const refreshIntervalMs = config.session.refreshIntervalSeconds * 1000;
@@ -142,6 +228,7 @@ export async function validateAndRotateSession(
   let newCsrfCookie = "";
 
   if (now - lastUpdated > rotationThreshold) {
+    // Session rotation logic
     const newSessionResp = await generateSessionToken({ config });
     if (!newSessionResp.success) {
       throw new Error(newSessionResp.error.message);
@@ -156,6 +243,7 @@ export async function validateAndRotateSession(
     const { csrfToken: rotatedCsrf, csrfTokenHash: rotatedCsrfHash } =
       newCsrfResp.data;
 
+    // Use transaction to update session
     const updatedSession = await prisma.$transaction(async (tx) => {
       return tx.session.update({
         where: { id: session.id },
@@ -194,6 +282,12 @@ export async function validateAndRotateSession(
     };
   }
 
+  // No rotation needed, just refresh the session's last activity time
+  await prisma.session.update({
+    where: { id: session.id },
+    data: { updatedAt: new Date() },
+  });
+
   return {
     session,
     rotated: false,
@@ -204,6 +298,7 @@ export async function validateAndRotateSession(
   };
 }
 
+// Other existing functions remain unchanged
 export async function revokeSession(
   prisma: PrismaClient,
   sessionId: string,

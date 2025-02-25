@@ -56,6 +56,7 @@ export const defaultSessionConfig: SessionConfig = {
   tokenLength: 64,
   refreshIntervalSeconds: createTime(1, "h").toSeconds(),
   absoluteMaxLifetimeSeconds: createTime(30, "d").toSeconds(),
+  idleTimeoutSeconds: createTime(2, "h").toSeconds(),
   rotationFraction: 0.5,
   cookie: {
     name: "aegis.session",
@@ -64,6 +65,16 @@ export const defaultSessionConfig: SessionConfig = {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
+  },
+  enhancedCookieOptions: {
+    partitioned: false,
+    priority: "high",
+  },
+  fingerprintOptions: {
+    enabled: true,
+    includeIp: false,
+    strictValidation: false,
+    maxDevicesPerUser: 5,
   },
 };
 
@@ -78,6 +89,10 @@ export const defaultCsrfConfig: CsrfConfig = {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
+  },
+  enhancedCookieOptions: {
+    partitioned: false,
+    priority: "medium",
   },
 };
 

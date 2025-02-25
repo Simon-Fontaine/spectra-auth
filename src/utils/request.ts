@@ -103,6 +103,7 @@ export async function processRequest(
         prisma,
         config,
         sessionToken,
+        headers,
       );
     } catch (error) {
       config.logger?.debug("Session invalid or expired", { ipAddress });

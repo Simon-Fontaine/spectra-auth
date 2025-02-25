@@ -1,5 +1,5 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
-import type { AegisAuthConfig } from "../types";
+import type { AegisAuthConfig, SessionDevice, SessionLocation } from "../types";
 import type { Endpoints } from "./rateLimit";
 
 export interface AuthenticatedUser
@@ -17,6 +17,13 @@ export interface AuthenticatedUser
   permissions: string[];
   sessions: Prisma.SessionGetPayload<true>[];
   passwordHistory: Prisma.PasswordHistoryGetPayload<true>[];
+}
+
+export interface SessionMetadata {
+  location?: SessionLocation;
+  device?: SessionDevice;
+  fingerprint?: string;
+  [key: string]: unknown;
 }
 
 export interface AegisContext {

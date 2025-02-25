@@ -45,8 +45,7 @@ model Session {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   ipAddress     String?
-  locationData  Json?    @map("location")
-  deviceData    Json?    @map("device")
+  metadata      Json? // Contains location, device, and fingerprint data
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

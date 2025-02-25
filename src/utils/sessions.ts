@@ -4,7 +4,12 @@ import {
   generateSessionToken,
   signSessionToken,
 } from "../security/sessionToken";
-import type { AegisAuthConfig, SessionDevice, SessionLocation } from "../types";
+import type {
+  AegisAuthConfig,
+  SessionDevice,
+  SessionLocation,
+  SessionMetadata,
+} from "../types";
 import {
   clearCsrfCookie,
   clearSessionCookie,
@@ -54,8 +59,16 @@ export async function createSession(
     Date.now() + config.session.absoluteMaxLifetimeSeconds * 1000,
   );
 
-  // Generate browser fingerprint if enabled
-  let fingerprint: string | undefined;
+  const metadata: Record<string, unknown> = {};
+
+  if (locationData) {
+    metadata.location = locationData;
+  }
+
+  if (deviceData) {
+    metadata.device = deviceData;
+  }
+
   if (config.session.fingerprintOptions?.enabled && headers) {
     const fingerprintResp = await generateBrowserFingerprint({
       ip: ipAddress,
@@ -65,7 +78,7 @@ export async function createSession(
     });
 
     if (fingerprintResp.success) {
-      fingerprint = fingerprintResp.data;
+      metadata.fingerprint = fingerprintResp.data;
     }
   }
 
@@ -85,9 +98,10 @@ export async function createSession(
       csrfTokenHash,
       expiresAt,
       ipAddress,
-      deviceData,
-      locationData,
-      metadata: fingerprint ? { fingerprint } : undefined,
+      metadata:
+        Object.keys(metadata).length > 0
+          ? (metadata as Prisma.InputJsonValue)
+          : undefined,
     },
   });
 
@@ -148,7 +162,6 @@ export async function validateAndRotateSession(
     throw new Error("Invalid or expired session");
   }
 
-  // Check for idle timeout if configured
   if (config.session.idleTimeoutSeconds) {
     const lastActivity = session.updatedAt.getTime();
     const now = Date.now();
@@ -163,16 +176,15 @@ export async function validateAndRotateSession(
     }
   }
 
-  // Validate fingerprint if enabled
   if (config.session.fingerprintOptions?.enabled && headers) {
-    // Get stored fingerprint from session metadata
-    const sessionMetadata = session.metadata as Record<string, any> | null;
+    const sessionMetadata =
+      (session.metadata as Record<string, unknown> | null) || {};
     const storedFingerprint = sessionMetadata?.fingerprint;
+    const deviceData = sessionMetadata?.device as SessionDevice | undefined;
 
-    // Generate current fingerprint
     const fingerprintResp = await generateBrowserFingerprint({
       ip: session.ipAddress || undefined,
-      userAgent: (session.deviceData as SessionDevice | null)?.userAgent,
+      userAgent: deviceData?.userAgent || undefined,
       headers,
       config,
     });
@@ -317,4 +329,28 @@ export function getClearSessionCookies(config: AegisAuthConfig): {
   const sessionCookie = clearSessionCookie(config);
   const csrfCookie = clearCsrfCookie(config);
   return { sessionCookie, csrfCookie };
+}
+
+export function getSessionMetadata(
+  session: Prisma.SessionGetPayload<true>,
+): SessionMetadata {
+  return (session.metadata as SessionMetadata | null) || {};
+}
+
+export function getSessionLocation(
+  session: Prisma.SessionGetPayload<true>,
+): SessionLocation | undefined {
+  return getSessionMetadata(session).location;
+}
+
+export function getSessionDevice(
+  session: Prisma.SessionGetPayload<true>,
+): SessionDevice | undefined {
+  return getSessionMetadata(session).device;
+}
+
+export function getSessionFingerprint(
+  session: Prisma.SessionGetPayload<true>,
+): string | undefined {
+  return getSessionMetadata(session).fingerprint;
 }

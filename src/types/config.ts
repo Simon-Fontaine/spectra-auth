@@ -25,6 +25,19 @@ export interface LoggerConfig {
   debug(msg: string, meta?: Record<string, unknown>): void;
 }
 
+export interface FingerprintOptions {
+  enabled: boolean;
+  includeIp: boolean;
+  strictValidation: boolean;
+  maxDevicesPerUser?: number;
+}
+
+export interface IPDetectionOptions {
+  trustProxyHeaders: boolean;
+  proxyHeaderPrecedence: string[];
+  allowPrivateIPs: boolean;
+}
+
 export interface CoreConfig {
   baseUrl: string;
 }
@@ -69,6 +82,7 @@ export interface SessionConfig {
   absoluteMaxLifetimeSeconds: number;
   rotationFraction: number;
   cookie: CookieOptions;
+  fingerprintOptions?: FingerprintOptions;
 }
 
 export interface CsrfConfig {
@@ -126,4 +140,5 @@ export interface AegisAuthConfig {
   rateLimit: RateLimitConfig;
   geoLookup: GeoLookupConfig;
   email: EmailConfig;
+  ipDetection?: IPDetectionOptions;
 }

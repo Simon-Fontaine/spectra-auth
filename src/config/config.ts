@@ -8,6 +8,7 @@ import {
   defaultCsrfConfig,
   defaultEmailConfig,
   defaultGeoLookupConfig,
+  defaultIPDetectionOptions,
   defaultLoginConfig,
   defaultPasswordConfig,
   defaultRateLimitConfig,
@@ -32,6 +33,7 @@ export function buildConfig(
       rateLimit: defaultRateLimitConfig,
       geoLookup: defaultGeoLookupConfig,
       email: defaultEmailConfig,
+      ipDetection: defaultIPDetectionOptions,
     };
 
     const mergedConfig = merge({}, defaultConfig, userConfig);

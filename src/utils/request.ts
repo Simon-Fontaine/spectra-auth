@@ -8,6 +8,7 @@ import type {
   Endpoints,
 } from "../types";
 import { getCsrfToken, getSessionToken } from "./cookies";
+import { extractClientIP } from "./ip";
 import { fail, success } from "./response";
 import {
   type SessionValidationResult,
@@ -16,10 +17,7 @@ import {
 
 function getHeaders(headers: Headers, config: AegisAuthConfig) {
   return {
-    ipAddress:
-      headers.get("x-forwarded-for")?.split(",")[0].trim() ||
-      headers.get("x-real-ip") ||
-      undefined,
+    ipAddress: extractClientIP(headers, config),
     userAgent: headers.get("user-agent") || undefined,
     csrfToken: config.csrf.enabled ? getCsrfToken(headers, config) : undefined,
     sessionToken: getSessionToken(headers, config),

@@ -1,5 +1,6 @@
 export * from "./cookies";
 export * from "./geolocation";
+export * from "./ip";
 export * from "./rateLimit";
 export * from "./response";
 export * from "./sessions";

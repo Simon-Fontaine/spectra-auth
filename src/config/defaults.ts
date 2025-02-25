@@ -4,6 +4,7 @@ import type {
   CsrfConfig,
   EmailConfig,
   GeoLookupConfig,
+  IPDetectionOptions,
   LoginConfig,
   PasswordConfig,
   RateLimitConfig,
@@ -112,4 +113,17 @@ export const defaultEmailConfig: EmailConfig = {
   sendAccountDeletion: async () => {
     throw new Error("Email handler not configured");
   },
+};
+
+export const defaultIPDetectionOptions: IPDetectionOptions = {
+  trustProxyHeaders: true,
+  proxyHeaderPrecedence: [
+    "x-forwarded-for",
+    "x-real-ip",
+    "cf-connecting-ip",
+    "true-client-ip",
+    "x-client-ip",
+    "forwarded",
+  ],
+  allowPrivateIPs: false,
 };

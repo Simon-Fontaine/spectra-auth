@@ -78,12 +78,42 @@ export async function processRequest(
   endpoints: Endpoints,
   headers: Headers,
 ): Promise<AegisResponse<ExtendedAegisContext>> {
+  const requestStartTime = Date.now();
+  const requestId = Math.random().toString(36).substring(2, 15);
+
   try {
     const { ipAddress, userAgent, csrfToken, sessionToken } = getHeaders(
       headers,
       config,
     );
 
+    config.logger?.debug("Processing request", {
+      requestId,
+      ipAddress,
+      hasSessionToken: !!sessionToken,
+      hasCsrfToken: !!csrfToken,
+    });
+
+    // Suspicious pattern: CSRF token without session
+    if (!sessionToken && csrfToken && config.csrf.enabled) {
+      config.logger?.warn("CSRF token without session detected", {
+        requestId,
+        ipAddress,
+      });
+      // Don't indicate the suspicious nature to the client
+      const ctx = createContext({
+        prisma,
+        config,
+        endpoints,
+        headers,
+        ipAddress,
+        userAgent,
+        csrfToken,
+      });
+      return success(ctx);
+    }
+
+    // No session token, return unauthenticated context
     if (!sessionToken) {
       const ctx = createContext({
         prisma,
@@ -97,6 +127,7 @@ export async function processRequest(
       return success(ctx);
     }
 
+    // Attempt to validate and potentially rotate the session
     let validationResult: SessionValidationResult;
     try {
       validationResult = await validateAndRotateSession(
@@ -106,7 +137,11 @@ export async function processRequest(
         headers,
       );
     } catch (error) {
-      config.logger?.debug("Session invalid or expired", { ipAddress });
+      config.logger?.debug("Session validation failed", {
+        requestId,
+        ipAddress,
+        error: error instanceof Error ? error.message : String(error),
+      });
       const ctx = createContext({
         prisma,
         config,
@@ -119,14 +154,23 @@ export async function processRequest(
       return success(ctx);
     }
 
+    // CSRF verification (if CSRF is enabled and session wasn't rotated)
+    // If session was rotated, new CSRF token was already generated
     if (config.csrf.enabled && !validationResult.rotated) {
       const csrfResp = await verifyCsrfToken({
         token: csrfToken || "",
         hash: validationResult.session.csrfTokenHash,
         config,
       });
+
       if (!csrfResp.success || !csrfResp.data) {
-        config.logger?.warn("Invalid CSRF token", { ipAddress, sessionToken });
+        config.logger?.warn("CSRF validation failed", {
+          requestId,
+          ipAddress,
+          sessionId: validationResult.session.id,
+        });
+
+        // Don't indicate the failure reason
         const ctx = createContext({
           prisma,
           config,
@@ -140,12 +184,20 @@ export async function processRequest(
       }
     }
 
-    const userResult = validationResult.session.user;
-    if (!userResult || userResult.isBanned) {
-      config.logger?.warn("User not found or banned", {
+    // User validation
+    const userRecord = validationResult.session.user;
+
+    // Check if user exists and is not banned
+    if (!userRecord || userRecord.isBanned) {
+      const reason = !userRecord ? "User not found" : "User banned";
+      config.logger?.warn(`Session validation failed: ${reason}`, {
+        requestId,
         ipAddress,
+        sessionId: validationResult.session.id,
         userId: validationResult.session.userId,
       });
+
+      // Return unauthenticated context without exposing the reason
       const ctx = createContext({
         prisma,
         config,
@@ -158,19 +210,22 @@ export async function processRequest(
       return success(ctx);
     }
 
-    const { passwordHash, userRoles, ...safeUser } = userResult;
+    // Process user data for auth context
+    const { passwordHash, userRoles, ...safeUser } = userRecord;
     const roles = userRoles.map((ur) => ur.role.name);
     const permissions = Array.from(
       new Set(userRoles.flatMap((ur) => ur.role.permissions || [])),
     );
+
     const authUser = {
       ...safeUser,
       roles,
       permissions,
-      sessions: userResult.sessions,
-      passwordHistory: userResult.passwordHistory,
+      sessions: userRecord.sessions,
+      passwordHistory: userRecord.passwordHistory,
     };
 
+    // Create authenticated context
     const ctx = createContext({
       prisma,
       config,
@@ -186,6 +241,7 @@ export async function processRequest(
       session: validationResult.session,
     });
 
+    // Add cookies if session was rotated
     if (validationResult.rotated) {
       (ctx as ExtendedAegisContext).cookies = {
         sessionCookie: validationResult.sessionCookie,
@@ -193,14 +249,23 @@ export async function processRequest(
       };
     }
 
+    const processingTime = Date.now() - requestStartTime;
+    config.logger?.debug("Request processing complete", {
+      requestId,
+      authenticated: true,
+      processingTimeMs: processingTime,
+    });
+
     return success(ctx);
   } catch (error) {
-    config.logger?.error("Error processing request", {
+    const processingTime = Date.now() - requestStartTime;
+    config.logger?.error("Request processing failed", {
+      requestId,
+      processingTimeMs: processingTime,
       error: error instanceof Error ? error.message : "Unknown error",
-      ipAddress:
-        headers.get("x-forwarded-for")?.split(",")[0].trim() ||
-        headers.get("x-real-ip"),
+      ipAddress: extractClientIP(headers, config),
     });
+
     return fail("PROCESS_REQUEST_ERROR", "Error processing request");
   }
 }

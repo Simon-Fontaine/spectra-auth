@@ -26,6 +26,40 @@ export interface ResponseOptions {
 }
 
 /**
+ * Type for response return object
+ */
+type FormattedResponse<T> = {
+  status: number;
+  headers: Record<string, string>;
+  body: ApiResponse<T>;
+};
+
+/**
+ * Builds response headers with security headers and custom headers
+ *
+ * @param customHeaders - Additional headers to include
+ * @param cookies - Cookies to set
+ * @returns Combined headers object
+ */
+function buildResponseHeaders(
+  customHeaders: Record<string, string> = {},
+  cookies?: string[],
+): Record<string, string> {
+  const responseHeaders: Record<string, string> = {
+    ...securityHeaders,
+    "Content-Type": "application/json",
+    ...customHeaders,
+  };
+
+  // Add cookies if provided
+  if (cookies && cookies.length > 0) {
+    responseHeaders["Set-Cookie"] = cookies.join(", ");
+  }
+
+  return responseHeaders;
+}
+
+/**
  * Formats a successful response with standard structure
  *
  * @param data - Response data
@@ -35,35 +69,16 @@ export interface ResponseOptions {
 export function formatSuccessResponse<T>(
   data: T,
   options: ResponseOptions = {},
-): {
-  status: number;
-  headers: Record<string, string>;
-  body: ApiResponse<T>;
-} {
+): FormattedResponse<T> {
   const { headers = {}, cookies = [], status = 200 } = options;
-
-  // Combine headers
-  const responseHeaders = {
-    ...securityHeaders,
-    "Content-Type": "application/json",
-    ...headers,
-  };
-
-  // Add cookies if provided
-  if (cookies.length > 0) {
-    responseHeaders["Set-Cookie"] = cookies.join(", ");
-  }
-
-  // Format body
-  const body: ApiResponse<T> = {
-    success: true,
-    data,
-  };
 
   return {
     status,
-    headers: responseHeaders,
-    body,
+    headers: buildResponseHeaders(headers, cookies),
+    body: {
+      success: true,
+      data,
+    },
   };
 }
 
@@ -74,14 +89,10 @@ export function formatSuccessResponse<T>(
  * @param options - Response options (headers, cookies, status)
  * @returns Formatted response object
  */
-export function formatErrorResponse(
+export function formatErrorResponse<T = null>(
   error: AegisError,
   options: ResponseOptions = {},
-): {
-  status: number;
-  headers: Record<string, string>;
-  body: ApiResponse<null>;
-} {
+): FormattedResponse<T> {
   const { headers = {}, cookies = [] } = options;
 
   // Determine status code based on error
@@ -104,33 +115,18 @@ export function formatErrorResponse(
       break;
   }
 
-  // Combine headers
-  const responseHeaders = {
-    ...securityHeaders,
-    "Content-Type": "application/json",
-    ...headers,
-  };
-
-  // Add cookies if provided
-  if (cookies.length > 0) {
-    responseHeaders["Set-Cookie"] = cookies.join(", ");
-  }
-
-  // Format body
-  const body: ApiResponse<null> = {
-    success: false,
-    data: null,
-    error: {
-      code: error.code,
-      message: error.message,
-      details: error.details,
-    },
-  };
-
   return {
     status,
-    headers: responseHeaders,
-    body,
+    headers: buildResponseHeaders(headers, cookies),
+    body: {
+      success: false,
+      data: null as unknown as T, // Type assertion to make it compatible
+      error: {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+      },
+    },
   };
 }
 
@@ -144,14 +140,10 @@ export function formatErrorResponse(
 export function formatResponse<T>(
   response: AegisResponse<T>,
   options: ResponseOptions = {},
-): {
-  status: number;
-  headers: Record<string, string>;
-  body: ApiResponse<T>;
-} {
+): FormattedResponse<T> {
   if (response.success) {
     return formatSuccessResponse(response.data, options);
   }
 
-  return formatErrorResponse(response.error, options);
+  return formatErrorResponse<T>(response.error, options);
 }

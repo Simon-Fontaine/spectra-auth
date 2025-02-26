@@ -6,20 +6,20 @@
 
 import type { PrismaClient } from "@prisma/client";
 import { Ratelimit } from "@upstash/ratelimit";
-import { buildConfig } from "./config/builder";
+import { buildConfig } from "./config";
 import { Endpoints, ErrorCode, SessionState } from "./constants";
 import * as accountModule from "./core/account";
 import * as authModule from "./core/auth";
-import { getClearAuthCookies } from "./http/cookies";
 import {
   applyMiddleware,
   csrfProtection,
+  formatResponse,
+  getClearAuthCookies,
+  processRequest,
   requireAuth,
   requirePermissions,
   requireRoles,
-} from "./http/middleware";
-import { processRequest } from "./http/request";
-import { formatResponse } from "./http/response";
+} from "./http";
 import type {
   AegisAuthConfig,
   AegisContext,
@@ -353,7 +353,9 @@ export class AegisAuth {
     >,
     handler: () => Promise<AegisResponse<T>>,
   ): Promise<AegisResponse<T>> {
-    return applyMiddleware(ctx, middlewares, handler);
+    return applyMiddleware(ctx, middlewares, handler) as Promise<
+      AegisResponse<T>
+    >;
   }
 }
 

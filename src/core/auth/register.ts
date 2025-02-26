@@ -79,7 +79,7 @@ export const register = createOperation(
     request: RegisterRequest,
   ): Promise<AegisResponse<RegisterResponse>> => {
     // Apply rate limiting
-    return withRateLimit(ctx, "register", async () => {
+    return withRateLimit(ctx, "REGISTER", async () => {
       const { config, prisma, req } = ctx;
 
       // Check if registration is enabled

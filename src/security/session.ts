@@ -1,5 +1,6 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { ErrorCode, SessionState } from "../constants";
+import { createCsrfCookie, createSessionCookie } from "../http/cookies";
 import type {
   AegisAuthConfig,
   AegisResponse,
@@ -10,7 +11,6 @@ import type {
   SessionValidationResult,
   SessionWithRelations,
 } from "../types";
-import { createCsrfCookie, createSessionCookie } from "../utils/cookies";
 import { createOperation } from "../utils/error";
 import { generateFingerprint, validateFingerprint } from "../utils/fingerprint";
 import { fail, success } from "../utils/response";
@@ -19,22 +19,15 @@ import { createHmac } from "./crypto";
 import { generateCsrfToken, generateSessionToken } from "./tokens";
 
 /**
- * Revokes a session with reason tracking
+ * Revokes a session with a reason
  */
 async function revokeSessionWithReason(
-  prisma: PrismaClient,
+  prisma: PrismaClient | Prisma.TransactionClient,
   sessionId: string,
   reason: string,
   ipAddress?: string,
   metadata?: Record<string, unknown>,
 ): Promise<void> {
-  const revocationMetadata = {
-    revocationReason: reason,
-    revokedAt: new Date().toISOString(),
-    ipAddress,
-    ...metadata,
-  };
-
   const session = await prisma.session.findUnique({
     where: { id: sessionId },
     select: { metadata: true },
@@ -46,14 +39,17 @@ async function revokeSessionWithReason(
       isRevoked: true,
       metadata: {
         ...((session?.metadata as Record<string, unknown>) || {}),
-        ...revocationMetadata,
+        revocationReason: reason,
+        revokedAt: new Date().toISOString(),
+        ipAddress,
+        ...metadata,
       },
     },
   });
 }
 
 /**
- * Creates a new authenticated session
+ * Creates a new session
  */
 export const createSession = createOperation(
   "createSession",
@@ -74,31 +70,23 @@ export const createSession = createOperation(
       locationData,
       deviceData,
       metadata = {},
+      expiresAt,
     } = options;
 
-    // Generate session token
     const sessionTokenResult = await generateSessionToken(config);
-    if (!sessionTokenResult.success) {
-      return sessionTokenResult;
-    }
+    if (!sessionTokenResult.success) return sessionTokenResult;
 
-    // Generate CSRF token
     const csrfTokenResult = await generateCsrfToken(config);
-    if (!csrfTokenResult.success) {
-      return csrfTokenResult;
-    }
+    if (!csrfTokenResult.success) return csrfTokenResult;
 
-    // Extract tokens and hashes
     const { token: sessionToken, hash: sessionTokenHash } =
       sessionTokenResult.data;
     const { token: csrfToken, hash: csrfTokenHash } = csrfTokenResult.data;
 
-    // Calculate expiration date
-    const expiresAt =
-      options.expiresAt ||
+    const finalExpiresAt =
+      expiresAt ||
       addTime(new Date(), config.session.absoluteMaxLifetimeSeconds, "s");
 
-    // Combine metadata
     const sessionMetadata: SessionMetadata = {
       ...metadata,
       device: deviceData,
@@ -109,81 +97,67 @@ export const createSession = createOperation(
       createdIp: ipAddress,
     };
 
-    // Generate browser fingerprint if enabled and headers are available
-    if (config.session.fingerprintOptions?.enabled && options.userAgent) {
-      // Mock Headers object for generateFingerprint
+    if (config.session.fingerprintOptions?.enabled && userAgent) {
       const headers = new Headers();
-      if (options.userAgent) {
-        headers.set("user-agent", options.userAgent);
-      }
-
-      const fingerprintResult = await generateFingerprint({
+      headers.set("user-agent", userAgent);
+      const fpResult = await generateFingerprint({
         ip: ipAddress,
-        userAgent: options.userAgent,
+        userAgent,
         headers,
         config,
       });
-
-      if (fingerprintResult.success) {
-        sessionMetadata.fingerprint = fingerprintResult.data;
+      if (fpResult.success) {
+        sessionMetadata.fingerprint = fpResult.data;
       }
     }
 
-    // Create session in database
     const session = await prisma.$transaction(async (tx) => {
-      // Enforce maximum session limit if configured
-      if (config.account.maxSimultaneousSessions > 0) {
-        const activeSessions = await tx.session.findMany({
-          where: {
-            userId,
-            isRevoked: false,
-          },
-          orderBy: {
-            createdAt: "asc",
-          },
+      if (config.account.preventConcurrentSessions) {
+        const existing = await tx.session.findMany({
+          where: { userId, isRevoked: false },
         });
-
-        const excessSessions = Math.max(
-          0,
-          activeSessions.length - config.account.maxSimultaneousSessions + 1,
-        );
-
-        if (excessSessions > 0) {
-          const sessionsToRevoke = activeSessions.slice(0, excessSessions);
-
-          if (sessionsToRevoke.length > 0) {
-            for (const session of sessionsToRevoke) {
-              await revokeSessionWithReason(
-                tx as unknown as PrismaClient,
-                session.id,
-                "session_limit_exceeded",
-                ipAddress,
-                {
-                  newSessionCreated: true,
-                  maxSimultaneousSessions:
-                    config.account.maxSimultaneousSessions,
-                },
-              );
-            }
-
-            config.logger?.info("Revoked older sessions due to limit", {
-              userId,
-              revokedCount: sessionsToRevoke.length,
-            });
+        if (existing.length > 0) {
+          for (const s of existing) {
+            await revokeSessionWithReason(
+              tx,
+              s.id,
+              "preventConcurrentSessions",
+              ipAddress,
+            );
           }
+        }
+      } else if (config.account.maxSimultaneousSessions > 0) {
+        const active = await tx.session.findMany({
+          where: { userId, isRevoked: false },
+          orderBy: { createdAt: "asc" },
+        });
+        const excess = Math.max(
+          0,
+          active.length - config.account.maxSimultaneousSessions + 1,
+        );
+        if (excess > 0) {
+          const toRevoke = active.slice(0, excess);
+          for (const s of toRevoke) {
+            await revokeSessionWithReason(
+              tx,
+              s.id,
+              "session_limit_exceeded",
+              ipAddress,
+              { newSessionCreated: true },
+            );
+          }
+          config.logger?.info("Revoked older sessions due to limit", {
+            userId,
+            revokedCount: toRevoke.length,
+          });
         }
       }
 
-      // Create the new session
       return tx.session.create({
         include: {
           user: {
             include: {
-              userRoles: {
-                include: {
-                  role: true,
-                },
-              },
+              userRoles: { include: { role: true } },
             },
           },
         },
@@ -191,29 +165,22 @@ export const createSession = createOperation(
           userId,
           tokenHash: sessionTokenHash,
           csrfTokenHash,
-          expiresAt,
+          expiresAt: finalExpiresAt,
           ipAddress,
           metadata: sessionMetadata as Prisma.InputJsonValue,
         },
       });
     });
 
-    // Create cookies
-    const sessionCookie = createSessionCookie(sessionToken as string, config);
-    const csrfCookie = createCsrfCookie(csrfToken as string, config);
+    const sessionCookie = createSessionCookie(sessionToken, config);
+    const csrfCookie = createCsrfCookie(csrfToken, config);
 
-    return success({
-      session,
-      cookies: {
-        sessionCookie,
-        csrfCookie,
-      },
-    });
+    return success({ session, cookies: { sessionCookie, csrfCookie } });
   },
 );
 
 /**
- * Validates and potentially rotates a session
+ * Validates and possibly rotates a session
  */
 export const validateSession = createOperation(
   "validateSession",
@@ -226,76 +193,48 @@ export const validateSession = createOperation(
     sessionToken: SessionToken,
     headers: Headers,
   ): Promise<AegisResponse<SessionValidationResult>> => {
-    // Verify the token to get the hash
-    const tokenHashResult = await createHmac(
+    const hmac = await createHmac(
       "SHA-256",
       config.session.secret,
       sessionToken as string,
       "base64url",
     );
+    if (!hmac.success) return hmac;
 
-    if (!tokenHashResult.success) {
-      return tokenHashResult;
-    }
-
-    const tokenHash = tokenHashResult.data;
-
-    // Find the session
     const session = await prisma.session.findUnique({
-      where: {
-        tokenHash,
-      },
+      where: { tokenHash: hmac.data },
       include: {
         user: {
           include: {
-            userRoles: {
-              include: {
-                role: true,
-              },
-            },
+            userRoles: { include: { role: true } },
           },
         },
       },
     });
 
-    // Get client IP for logging
     const ipAddress =
       headers.get("x-forwarded-for")?.split(",")[0].trim() ||
       headers.get("x-real-ip") ||
       "unknown";
 
-    // Check if session exists
     if (!session) {
-      return fail(
-        ErrorCode.SESSION_INVALID,
-        "Invalid session token",
-        undefined,
-        { reason: "session_not_found" },
-      );
+      return fail(ErrorCode.SESSION_INVALID, "Invalid session token", {
+        reason: "session_not_found",
+      });
     }
-
-    // Check if session is revoked
     if (session.isRevoked) {
-      return fail(
-        ErrorCode.SESSION_REVOKED,
-        "Session has been revoked",
-        undefined,
-        { reason: "session_revoked" },
-      );
+      return fail(ErrorCode.SESSION_REVOKED, "Session has been revoked", {
+        reason: "session_revoked",
+      });
     }
-
-    // Check if session is expired
     if (isExpired(session.expiresAt)) {
       await revokeSessionWithReason(prisma, session.id, "expired", ipAddress, {
         expiryDate: session.expiresAt.toISOString(),
       });
-
-      return fail(ErrorCode.SESSION_EXPIRED, "Session has expired", undefined, {
+      return fail(ErrorCode.SESSION_EXPIRED, "Session has expired", {
         reason: "session_expired",
       });
     }
-
-    // Check user status
     if (session.user.isBanned) {
       await revokeSessionWithReason(
         prisma,
@@ -303,21 +242,15 @@ export const validateSession = createOperation(
         "user_banned",
         ipAddress,
       );
-      return fail(ErrorCode.AUTH_USER_BANNED, "User is banned", undefined, {
+      return fail(ErrorCode.AUTH_USER_BANNED, "User is banned", {
         reason: "user_banned",
       });
     }
-
-    // Check inactivity timeout
     if (config.session.idleTimeoutSeconds) {
-      const lastActivity = session.updatedAt;
       const now = new Date();
-      const idleTimeout = createTime(config.session.idleTimeoutSeconds, "s");
-
-      if (
-        now.getTime() - lastActivity.getTime() >
-        idleTimeout.toMilliseconds()
-      ) {
+      const lastActivity = session.updatedAt;
+      const idleLimit = createTime(config.session.idleTimeoutSeconds, "s");
+      if (now.getTime() - lastActivity.getTime() > idleLimit.toMilliseconds()) {
         await revokeSessionWithReason(
           prisma,
           session.id,
@@ -328,155 +261,114 @@ export const validateSession = createOperation(
             idleTimeoutSeconds: config.session.idleTimeoutSeconds,
           },
         );
-
         return fail(
           ErrorCode.SESSION_EXPIRED,
           "Session expired due to inactivity",
-          undefined,
           { reason: "idle_timeout" },
         );
       }
     }
 
-    // Extract session metadata
-    const metadata = (session.metadata as SessionMetadata | null) || {};
-
-    // Verify fingerprint if enabled
+    const metadata = (session.metadata as SessionMetadata) || {};
     if (config.session.fingerprintOptions?.enabled) {
-      const currentFingerprintResult = await generateFingerprint({
+      const userAgent = headers.get("user-agent") || undefined;
+      const fpResult = await generateFingerprint({
         ip: session.ipAddress || undefined,
-        userAgent: headers.get("user-agent") || undefined,
+        userAgent,
         headers,
         config,
       });
-
-      if (currentFingerprintResult.success) {
-        const fingerprintResult = await validateFingerprint(
-          currentFingerprintResult.data,
+      if (fpResult.success) {
+        const check = await validateFingerprint(
+          fpResult.data,
           metadata.fingerprint,
           config,
         );
-
-        if (!fingerprintResult.success) {
-          // Always revoke on fingerprint mismatch
+        if (!check.success) {
           await revokeSessionWithReason(
             prisma,
             session.id,
             "fingerprint_mismatch",
             ipAddress,
             {
-              currentFingerprint: `${currentFingerprintResult.data.substring(0, 8)}...`,
-              storedFingerprint: metadata.fingerprint
-                ? `${metadata.fingerprint.substring(0, 8)}...`
+              currentFp: fpResult.data.substring(0, 8),
+              storedFp: metadata.fingerprint
+                ? metadata.fingerprint.substring(0, 8)
                 : "missing",
-              userAgent: headers.get("user-agent")?.substring(0, 100),
             },
           );
-
           return fail(
             ErrorCode.SESSION_FINGERPRINT_MISMATCH,
             "Session fingerprint mismatch",
-            undefined,
             { reason: "fingerprint_mismatch" },
           );
         }
       }
     }
 
-    // Check if session needs rotation
+    const now = Date.now();
     const lastUpdated = session.updatedAt.getTime();
-    const now = new Date().getTime();
     const refreshInterval = config.session.refreshIntervalSeconds * 1000;
-    const rotationThreshold =
+    const rotateThreshold =
       refreshInterval * (config.session.rotationFraction || 0.5);
+    const needsRotation = now - lastUpdated > rotateThreshold;
 
-    const needsRotation = now - lastUpdated > rotationThreshold;
+    metadata.lastActive = new Date().toISOString();
+    metadata.lastActiveIp = ipAddress;
 
-    // Update session metadata with last activity time
-    const updatedMetadata = {
-      ...metadata,
-      lastActive: new Date().toISOString(),
-      lastActiveIp: ipAddress,
-    };
-
-    // If rotation is needed, create new tokens and update session
     if (needsRotation) {
-      // Generate new session token
-      const sessionTokenResult = await generateSessionToken(config);
-      if (!sessionTokenResult.success) {
-        return sessionTokenResult;
-      }
+      const newSessionToken = await generateSessionToken(config);
+      if (!newSessionToken.success) return newSessionToken;
 
-      // Generate new CSRF token
-      const csrfTokenResult = await generateCsrfToken(config);
-      if (!csrfTokenResult.success) {
-        return csrfTokenResult;
-      }
+      const newCsrfToken = await generateCsrfToken(config);
+      if (!newCsrfToken.success) return newCsrfToken;
 
-      // Extract new tokens and hashes
-      const { token: newSessionToken, hash: newSessionTokenHash } =
-        sessionTokenResult.data;
-      const { token: newCsrfToken, hash: newCsrfTokenHash } =
-        csrfTokenResult.data;
+      metadata.rotations = ((metadata.rotations as number) || 0) + 1;
+      metadata.lastRotatedAt = new Date().toISOString();
 
-      // Add rotation info to metadata
-      updatedMetadata.rotations = ((metadata.rotations as number) || 0) + 1;
-      updatedMetadata.lastRotatedAt = new Date().toISOString();
-
-      // Update session with new tokens and extend expiration
-      const updatedSession = await prisma.session.update({
-        where: {
-          id: session.id,
-        },
-        include: {
-          user: {
-            include: {
-              userRoles: {
-                include: {
-                  role: true,
-                },
-              },
-            },
-          },
-        },
+      const updated = await prisma.session.update({
+        where: { id: session.id },
         data: {
-          tokenHash: newSessionTokenHash,
-          csrfTokenHash: newCsrfTokenHash,
+          tokenHash: newSessionToken.data.hash,
+          csrfTokenHash: newCsrfToken.data.hash,
           expiresAt: addTime(
             new Date(),
             config.session.absoluteMaxLifetimeSeconds,
             "s",
           ),
-          metadata: updatedMetadata as Prisma.InputJsonValue,
+          metadata: metadata as Prisma.InputJsonValue,
+        },
+        include: {
+          user: {
+            include: {
+              userRoles: { include: { role: true } },
+            },
+          },
         },
       });
 
-      // Create new cookies
       const sessionCookie = createSessionCookie(
-        newSessionToken as string,
+        newSessionToken.data.token,
         config,
       );
-      const csrfCookie = createCsrfCookie(newCsrfToken as string, config);
+      const csrfCookie = createCsrfCookie(newCsrfToken.data.token, config);
 
       return success({
         isValid: true,
         state: SessionState.ACTIVE,
-        session: updatedSession,
+        session: updated,
         rotated: true,
-        sessionToken: newSessionToken,
-        csrfToken: newCsrfToken,
+        sessionToken: newSessionToken.data.token,
+        csrfToken: newCsrfToken.data.token,
         sessionCookie,
         csrfCookie,
       });
     }
 
-    // If no rotation needed, just update last activity time
     await prisma.session.update({
-      where: {
-        id: session.id,
-      },
+      where: { id: session.id },
       data: {
-        metadata: updatedMetadata as Prisma.InputJsonValue,
+        metadata: metadata as Prisma.InputJsonValue,
       },
     });
 
@@ -490,7 +382,7 @@ export const validateSession = createOperation(
 );
 
 /**
- * Revokes a session
+ * Revokes a single session
  */
 export const revokeSession = createOperation(
   "revokeSession",
@@ -508,7 +400,7 @@ export const revokeSession = createOperation(
 );
 
 /**
- * Revokes all sessions for a user
+ * Revokes all sessions for a user (optionally skipping one session)
  */
 export const revokeAllUserSessions = createOperation(
   "revokeAllUserSessions",
@@ -525,23 +417,17 @@ export const revokeAllUserSessions = createOperation(
       userId,
       isRevoked: false,
     };
-
     if (exceptSessionId) {
       whereClause.id = { not: exceptSessionId };
     }
 
-    // First get all sessions to revoke
     const sessions = await prisma.session.findMany({
       where: whereClause,
       select: { id: true },
     });
 
-    // Revoke each session with reason
-    for (const session of sessions) {
-      await revokeSessionWithReason(prisma, session.id, reason, undefined, {
-        revokedBySessionId: exceptSessionId,
-        massRevocation: true,
-      });
+    for (const s of sessions) {
+      await revokeSessionWithReason(prisma, s.id, reason);
     }
 
     return success(sessions.length);

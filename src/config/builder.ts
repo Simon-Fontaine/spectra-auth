@@ -49,19 +49,11 @@ export function buildConfig(
     // Deep merge with user configuration
     const config = merge({}, defaultConfig, userConfig);
 
-    for (const endpoint in config.rateLimit.endpoints) {
-      if (
-        !config.rateLimit.endpoints[
-          endpoint as keyof typeof config.rateLimit.endpoints
-        ]
-      ) {
-        config.rateLimit.endpoints[
-          endpoint as keyof typeof config.rateLimit.endpoints
-        ] =
-          defaultRateLimitConfig.endpoints[
-            endpoint as keyof typeof defaultRateLimitConfig.endpoints
-          ];
-      }
+    for (const endpoint in defaultRateLimitConfig.endpoints) {
+      const key = endpoint as keyof typeof config.rateLimit.endpoints;
+      config.rateLimit.endpoints[key] =
+        config.rateLimit.endpoints[key] ||
+        defaultRateLimitConfig.endpoints[key];
     }
 
     // Validate the complete configuration

@@ -82,9 +82,9 @@ export class AegisAuth {
         }
       }
     } catch (error) {
-      this.config.logger?.error("Failed to initialize rate limiters", {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      throw new Error(
+        `Failed to initialize rate limiters: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 

@@ -10,6 +10,11 @@ export interface SerializeCookieOptions extends Omit<CookieOptions, "name"> {
 }
 
 /**
+ * Maximum cookie size recommended by browsers (in bytes)
+ */
+const MAX_COOKIE_SIZE = 4096;
+
+/**
  * Converts config cookie options to serialization options
  *
  * @param options - Base cookie options
@@ -28,6 +33,39 @@ function getFullCookieOptions(
     partitioned: enhancedOptions?.partitioned,
     priority: enhancedOptions?.priority,
   };
+}
+
+/**
+ * Extracts the appropriate domain for cookies based on the hostname
+ *
+ * @param host - The request host (e.g., "app.example.com")
+ * @param useRootDomain - Whether to use the root domain instead of the full hostname
+ * @returns The appropriate domain value or undefined for localhost
+ */
+export function getDomainFromHost(
+  host: string,
+  useRootDomain = false,
+): string | undefined {
+  if (!host || host === "localhost" || host.includes("127.0.0.1")) {
+    return undefined;
+  }
+
+  // Remove port if present
+  const hostWithoutPort = host.split(":")[0];
+
+  const parts = hostWithoutPort.split(".");
+  if (parts.length <= 1) {
+    return undefined;
+  }
+
+  // For root domain usage (e.g., example.com instead of subdomain.example.com)
+  if (useRootDomain && parts.length > 2) {
+    const rootDomain = parts.slice(-2).join(".");
+    // Only return root domain if it's not an IP address
+    return /^\d+\.\d+$/.test(rootDomain) ? undefined : rootDomain;
+  }
+
+  return hostWithoutPort;
 }
 
 /**
@@ -65,8 +103,14 @@ export function serializeCookie(
           ? "none"
           : sameSite;
 
+  // Add explicit Expires date for better compatibility
+  const expires = maxAgeSeconds
+    ? new Date(Date.now() + maxAgeSeconds * 1000)
+    : undefined;
+
   let cookie = serialize(name, value, {
     maxAge: maxAgeSeconds,
+    expires,
     httpOnly,
     secure,
     path,
@@ -81,6 +125,14 @@ export function serializeCookie(
   if (priority) {
     cookie += `; Priority=${priority}`;
   }
+
+  // Check cookie size and warn if it exceeds the limit
+  if (cookie.length > MAX_COOKIE_SIZE) {
+    console.warn(
+      `Cookie ${name} exceeds ${MAX_COOKIE_SIZE} bytes and may be truncated by browsers`,
+    );
+  }
+
   return cookie;
 }
 
@@ -89,19 +141,27 @@ export function serializeCookie(
  *
  * @param sessionToken - Session token value
  * @param config - Authentication configuration
+ * @param host - Optional host for domain detection
  * @returns Cookie string for Set-Cookie header
  */
 export function createSessionCookie(
   sessionToken: string,
   config: AegisAuthConfig,
+  host?: string,
 ): string {
   const { session } = config;
   const { name, ...cookieOptions } = session.cookie;
 
+  // If domain isn't explicitly set but host is provided, try to determine domain
+  const options = { ...cookieOptions };
+  if (!options.domain && host) {
+    options.domain = getDomainFromHost(host, true); // Use root domain for session cookies
+  }
+
   return serializeCookie(
     name,
     sessionToken,
-    getFullCookieOptions(cookieOptions, session.enhancedCookieOptions),
+    getFullCookieOptions(options, session.enhancedCookieOptions),
   );
 }
 
@@ -110,19 +170,27 @@ export function createSessionCookie(
  *
  * @param csrfToken - CSRF token value
  * @param config - Authentication configuration
+ * @param host - Optional host for domain detection
  * @returns Cookie string for Set-Cookie header
  */
 export function createCsrfCookie(
   csrfToken: string,
   config: AegisAuthConfig,
+  host?: string,
 ): string {
   const { csrf } = config;
   const { name, ...cookieOptions } = csrf.cookie;
 
+  // If domain isn't explicitly set but host is provided, try to determine domain
+  const options = { ...cookieOptions };
+  if (!options.domain && host) {
+    options.domain = getDomainFromHost(host, true); // Use root domain for CSRF cookies
+  }
+
   return serializeCookie(
     name,
     csrfToken,
-    getFullCookieOptions(cookieOptions, csrf.enhancedCookieOptions),
+    getFullCookieOptions(options, csrf.enhancedCookieOptions),
   );
 }
 
@@ -147,15 +215,25 @@ export function createClearCookie(
  * Clears the session cookie.
  *
  * @param config - Authentication configuration
+ * @param host - Optional host for domain detection
  * @returns Cookie string that will clear the session cookie
  */
-export function clearSessionCookie(config: AegisAuthConfig): string {
+export function clearSessionCookie(
+  config: AegisAuthConfig,
+  host?: string,
+): string {
   const { session } = config;
   const { name, ...cookieOptions } = session.cookie;
 
+  // If domain isn't explicitly set but host is provided, try to determine domain
+  const options = { ...cookieOptions };
+  if (!options.domain && host) {
+    options.domain = getDomainFromHost(host, true); // Use root domain for session cookies
+  }
+
   return createClearCookie(
     name,
-    getFullCookieOptions(cookieOptions, session.enhancedCookieOptions),
+    getFullCookieOptions(options, session.enhancedCookieOptions),
   );
 }
 
@@ -163,15 +241,25 @@ export function clearSessionCookie(config: AegisAuthConfig): string {
  * Clears the CSRF cookie.
  *
  * @param config - Authentication configuration
+ * @param host - Optional host for domain detection
  * @returns Cookie string that will clear the CSRF cookie
  */
-export function clearCsrfCookie(config: AegisAuthConfig): string {
+export function clearCsrfCookie(
+  config: AegisAuthConfig,
+  host?: string,
+): string {
   const { csrf } = config;
   const { name, ...cookieOptions } = csrf.cookie;
 
+  // If domain isn't explicitly set but host is provided, try to determine domain
+  const options = { ...cookieOptions };
+  if (!options.domain && host) {
+    options.domain = getDomainFromHost(host, true); // Use root domain for CSRF cookies
+  }
+
   return createClearCookie(
     name,
-    getFullCookieOptions(cookieOptions, csrf.enhancedCookieOptions),
+    getFullCookieOptions(options, csrf.enhancedCookieOptions),
   );
 }
 
@@ -179,15 +267,19 @@ export function clearCsrfCookie(config: AegisAuthConfig): string {
  * Returns both session and CSRF cookies cleared.
  *
  * @param config - Authentication configuration
+ * @param host - Optional host for domain detection
  * @returns Object with both cookies cleared
  */
-export function getClearAuthCookies(config: AegisAuthConfig): {
+export function getClearAuthCookies(
+  config: AegisAuthConfig,
+  host?: string,
+): {
   sessionCookie: string;
   csrfCookie: string;
 } {
   return {
-    sessionCookie: clearSessionCookie(config),
-    csrfCookie: clearCsrfCookie(config),
+    sessionCookie: clearSessionCookie(config, host),
+    csrfCookie: clearCsrfCookie(config, host),
   };
 }
 

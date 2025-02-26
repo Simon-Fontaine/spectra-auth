@@ -38,27 +38,21 @@ type FormattedResponse<T> = {
   status: number;
   headers: Record<string, string>;
   body: ApiResponse<T>;
+  cookies?: string[]; // Added to expose cookies for framework-specific handling
 };
 
 /**
  * Builds response headers with security headers and custom headers
+ * Cookies are now returned separately to be properly handled by frameworks
  */
 function buildResponseHeaders(
   customHeaders: Record<string, string> = {},
-  cookies?: string[],
 ): Record<string, string> {
-  const responseHeaders: Record<string, string> = {
+  return {
     ...securityHeaders,
     "Content-Type": "application/json",
     ...customHeaders,
   };
-
-  // Add cookies if provided
-  if (cookies && cookies.length > 0) {
-    responseHeaders["Set-Cookie"] = cookies.join(", ");
-  }
-
-  return responseHeaders;
 }
 
 /**
@@ -72,11 +66,13 @@ export function formatSuccessResponse<T>(
 
   return {
     status,
-    headers: buildResponseHeaders(headers, cookies),
+    headers: buildResponseHeaders(headers),
     body: {
       success: true,
       data,
     },
+    // Return cookies separately for proper multi-header handling
+    cookies: cookies.length > 0 ? cookies : undefined,
   };
 }
 
@@ -111,7 +107,7 @@ export function formatErrorResponse<T = null>(
 
   return {
     status,
-    headers: buildResponseHeaders(headers, cookies),
+    headers: buildResponseHeaders(headers),
     body: {
       success: false,
       data: null as unknown as T,
@@ -121,6 +117,8 @@ export function formatErrorResponse<T = null>(
         details: error.details,
       },
     },
+    // Return cookies separately for proper multi-header handling
+    cookies: cookies.length > 0 ? cookies : undefined,
   };
 }
 

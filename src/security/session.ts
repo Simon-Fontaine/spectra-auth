@@ -71,6 +71,7 @@ export const createSession = createOperation(
       deviceData,
       metadata = {},
       expiresAt,
+      host,
     } = options;
 
     const sessionTokenResult = await generateSessionToken(config);
@@ -172,8 +173,8 @@ export const createSession = createOperation(
       });
     });
 
-    const sessionCookie = createSessionCookie(sessionToken, config);
-    const csrfCookie = createCsrfCookie(csrfToken, config);
+    const sessionCookie = createSessionCookie(sessionToken, config, host);
+    const csrfCookie = createCsrfCookie(csrfToken, config, host);
 
     return success({ session, cookies: { sessionCookie, csrfCookie } });
   },

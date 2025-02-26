@@ -43,6 +43,7 @@ export interface CreateSessionOptions {
   deviceData?: SessionDevice;
   expiresAt?: Date;
   metadata?: Record<string, unknown>;
+  host?: string;
 }
 
 /**

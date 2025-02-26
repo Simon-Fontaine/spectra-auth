@@ -1,5 +1,5 @@
 /**
- * AegisAuth - A secure authentication system for Next.js and Node.js applications
+ * AegisAuth - A secure authentication system for modern web applications
  *
  * @packageDocumentation
  */
@@ -32,9 +32,9 @@ import type {
  * Main AegisAuth class for managing authentication
  */
 export class AegisAuth {
-  private config: AegisAuthConfig;
-  private prisma: PrismaClient;
-  private endpoints: EndpointsType = {};
+  private readonly config: AegisAuthConfig;
+  private readonly prisma: PrismaClient;
+  private readonly endpoints: EndpointsType = {};
 
   /**
    * Create a new instance of AegisAuth
@@ -77,6 +77,7 @@ export class AegisAuth {
               `${config.windowSeconds} s`,
             ),
             prefix: `${rateLimit.prefix}:${endpoint}`,
+            analytics: true,
           });
         }
       }
@@ -122,6 +123,7 @@ export class AegisAuth {
    *
    * @param headers - HTTP request headers
    * @param request - Registration request data
+   * @param host - Optional host for cookie domain resolution
    * @returns Registration result
    */
   async register(
@@ -137,6 +139,7 @@ export class AegisAuth {
    *
    * @param headers - HTTP request headers
    * @param request - Login request data
+   * @param host - Optional host for cookie domain resolution
    * @returns Authentication result with session cookies
    */
   async login(
@@ -151,6 +154,7 @@ export class AegisAuth {
    * Log out the current user
    *
    * @param headers - HTTP request headers
+   * @param host - Optional host for cookie domain resolution
    * @returns Logout result with cookie clearing instructions
    */
   async logout(
@@ -166,6 +170,7 @@ export class AegisAuth {
    * Log out all sessions for the current user
    *
    * @param headers - HTTP request headers
+   * @param host - Optional host for cookie domain resolution
    * @returns Logout result with session count and cookie clearing instructions
    */
   async logoutAll(headers: Headers): Promise<
@@ -389,3 +394,6 @@ export const {
   initiateAccountDeletion,
   completeAccountDeletion,
 } = accountModule;
+
+// Default export
+export default AegisAuth;

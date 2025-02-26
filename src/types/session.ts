@@ -11,7 +11,14 @@ export interface SessionMetadata {
   fingerprint?: string;
   userAgent?: string;
   lastActive?: string;
-  createdFrom?: string;
+  createdAt?: string;
+  createdIp?: string;
+  lastActiveIp?: string;
+  rotations?: number;
+  lastRotatedAt?: string;
+  revocationReason?: string;
+  revokedAt?: string;
+  revocationIp?: string;
   [key: string]: unknown;
 }
 

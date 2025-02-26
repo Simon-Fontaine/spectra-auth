@@ -19,12 +19,41 @@ import { createHmac } from "./crypto";
 import { generateCsrfToken, generateSessionToken } from "./tokens";
 
 /**
+ * Revokes a session with reason tracking
+ */
+async function revokeSessionWithReason(
+  prisma: PrismaClient,
+  sessionId: string,
+  reason: string,
+  ipAddress?: string,
+  metadata?: Record<string, unknown>,
+): Promise<void> {
+  const revocationMetadata = {
+    revocationReason: reason,
+    revokedAt: new Date().toISOString(),
+    ipAddress,
+    ...metadata,
+  };
+
+  const session = await prisma.session.findUnique({
+    where: { id: sessionId },
+    select: { metadata: true },
+  });
+
+  await prisma.session.update({
+    where: { id: sessionId },
+    data: {
+      isRevoked: true,
+      metadata: {
+        ...((session?.metadata as Record<string, unknown>) || {}),
+        ...revocationMetadata,
+      },
+    },
+  });
+}
+
+/**
  * Creates a new authenticated session
- *
- * @param prisma - Prisma client instance
- * @param config - Authentication configuration
- * @param options - Session creation options
- * @returns Response with session and cookies
  */
 export const createSession = createOperation(
   "createSession",
@@ -76,6 +105,8 @@ export const createSession = createOperation(
       location: locationData,
       userAgent,
       lastActive: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      createdIp: ipAddress,
     };
 
     // Generate browser fingerprint if enabled and headers are available
@@ -121,16 +152,19 @@ export const createSession = createOperation(
           const sessionsToRevoke = activeSessions.slice(0, excessSessions);
 
           if (sessionsToRevoke.length > 0) {
-            await tx.session.updateMany({
-              where: {
-                id: {
-                  in: sessionsToRevoke.map((s) => s.id),
+            for (const session of sessionsToRevoke) {
+              await revokeSessionWithReason(
+                tx as unknown as PrismaClient,
+                session.id,
+                "session_limit_exceeded",
+                ipAddress,
+                {
+                  newSessionCreated: true,
+                  maxSimultaneousSessions:
+                    config.account.maxSimultaneousSessions,
                 },
-              },
-              data: {
-                isRevoked: true,
-              },
-            });
+              );
+            }
 
             config.logger?.info("Revoked older sessions due to limit", {
               userId,
@@ -180,12 +214,6 @@ export const createSession = createOperation(
 
 /**
  * Validates and potentially rotates a session
- *
- * @param prisma - Prisma client instance
- * @param config - Authentication configuration
- * @param sessionToken - Current session token
- * @param headers - Request headers
- * @returns Response with validation result
  */
 export const validateSession = createOperation(
   "validateSession",
@@ -230,6 +258,12 @@ export const validateSession = createOperation(
       },
     });
 
+    // Get client IP for logging
+    const ipAddress =
+      headers.get("x-forwarded-for")?.split(",")[0].trim() ||
+      headers.get("x-real-ip") ||
+      "unknown";
+
     // Check if session exists
     if (!session) {
       return fail(
@@ -252,14 +286,8 @@ export const validateSession = createOperation(
 
     // Check if session is expired
     if (isExpired(session.expiresAt)) {
-      // Automatically revoke expired sessions
-      await prisma.session.update({
-        where: {
-          id: session.id,
-        },
-        data: {
-          isRevoked: true,
-        },
+      await revokeSessionWithReason(prisma, session.id, "expired", ipAddress, {
+        expiryDate: session.expiresAt.toISOString(),
       });
 
       return fail(ErrorCode.SESSION_EXPIRED, "Session has expired", undefined, {
@@ -269,6 +297,12 @@ export const validateSession = createOperation(
 
     // Check user status
     if (session.user.isBanned) {
+      await revokeSessionWithReason(
+        prisma,
+        session.id,
+        "user_banned",
+        ipAddress,
+      );
       return fail(ErrorCode.AUTH_USER_BANNED, "User is banned", undefined, {
         reason: "user_banned",
       });
@@ -284,14 +318,16 @@ export const validateSession = createOperation(
         now.getTime() - lastActivity.getTime() >
         idleTimeout.toMilliseconds()
       ) {
-        await prisma.session.update({
-          where: {
-            id: session.id,
+        await revokeSessionWithReason(
+          prisma,
+          session.id,
+          "idle_timeout",
+          ipAddress,
+          {
+            lastActivity: lastActivity.toISOString(),
+            idleTimeoutSeconds: config.session.idleTimeoutSeconds,
           },
-          data: {
-            isRevoked: true,
-          },
-        });
+        );
 
         return fail(
           ErrorCode.SESSION_EXPIRED,
@@ -322,29 +358,26 @@ export const validateSession = createOperation(
         );
 
         if (!fingerprintResult.success) {
-          if (config.session.fingerprintOptions.strictValidation) {
-            await prisma.session.update({
-              where: {
-                id: session.id,
-              },
-              data: {
-                isRevoked: true,
-              },
-            });
-
-            return fail(
-              ErrorCode.SESSION_FINGERPRINT_MISMATCH,
-              "Session fingerprint mismatch",
-              undefined,
-              { reason: "fingerprint_mismatch" },
-            );
-          }
-          config.logger?.warn(
-            "Session fingerprint mismatch (non-strict mode)",
+          // Always revoke on fingerprint mismatch
+          await revokeSessionWithReason(
+            prisma,
+            session.id,
+            "fingerprint_mismatch",
+            ipAddress,
             {
-              sessionId: session.id,
-              userId: session.userId,
+              currentFingerprint: `${currentFingerprintResult.data.substring(0, 8)}...`,
+              storedFingerprint: metadata.fingerprint
+                ? `${metadata.fingerprint.substring(0, 8)}...`
+                : "missing",
+              userAgent: headers.get("user-agent")?.substring(0, 100),
             },
+          );
+
+          return fail(
+            ErrorCode.SESSION_FINGERPRINT_MISMATCH,
+            "Session fingerprint mismatch",
+            undefined,
+            { reason: "fingerprint_mismatch" },
           );
         }
       }
@@ -358,6 +391,13 @@ export const validateSession = createOperation(
       refreshInterval * (config.session.rotationFraction || 0.5);
 
     const needsRotation = now - lastUpdated > rotationThreshold;
+
+    // Update session metadata with last activity time
+    const updatedMetadata = {
+      ...metadata,
+      lastActive: new Date().toISOString(),
+      lastActiveIp: ipAddress,
+    };
 
     // If rotation is needed, create new tokens and update session
     if (needsRotation) {
@@ -378,6 +418,10 @@ export const validateSession = createOperation(
         sessionTokenResult.data;
       const { token: newCsrfToken, hash: newCsrfTokenHash } =
         csrfTokenResult.data;
+
+      // Add rotation info to metadata
+      updatedMetadata.rotations = ((metadata.rotations as number) || 0) + 1;
+      updatedMetadata.lastRotatedAt = new Date().toISOString();
 
       // Update session with new tokens and extend expiration
       const updatedSession = await prisma.session.update({
@@ -403,10 +447,7 @@ export const validateSession = createOperation(
             config.session.absoluteMaxLifetimeSeconds,
             "s",
           ),
-          metadata: {
-            ...metadata,
-            lastActive: new Date().toISOString(),
-          },
+          metadata: updatedMetadata as Prisma.InputJsonValue,
         },
       });
 
@@ -435,10 +476,7 @@ export const validateSession = createOperation(
         id: session.id,
       },
       data: {
-        metadata: {
-          ...metadata,
-          lastActive: new Date().toISOString(),
-        },
+        metadata: updatedMetadata as Prisma.InputJsonValue,
       },
     });
 
@@ -453,10 +491,6 @@ export const validateSession = createOperation(
 
 /**
  * Revokes a session
- *
- * @param prisma - Prisma client instance
- * @param sessionId - ID of session to revoke
- * @returns Response with revocation result
  */
 export const revokeSession = createOperation(
   "revokeSession",
@@ -466,27 +500,15 @@ export const revokeSession = createOperation(
   async (
     prisma: PrismaClient,
     sessionId: string,
+    reason = "user_logout",
   ): Promise<AegisResponse<boolean>> => {
-    const session = await prisma.session.update({
-      where: {
-        id: sessionId,
-      },
-      data: {
-        isRevoked: true,
-      },
-    });
-
-    return success(session.isRevoked);
+    await revokeSessionWithReason(prisma, sessionId, reason);
+    return success(true);
   },
 );
 
 /**
  * Revokes all sessions for a user
- *
- * @param prisma - Prisma client instance
- * @param userId - User ID
- * @param exceptSessionId - Optional session ID to exclude from revocation
- * @returns Response with number of revoked sessions
  */
 export const revokeAllUserSessions = createOperation(
   "revokeAllUserSessions",
@@ -496,6 +518,7 @@ export const revokeAllUserSessions = createOperation(
   async (
     prisma: PrismaClient,
     userId: string,
+    reason = "user_logout_all",
     exceptSessionId?: string,
   ): Promise<AegisResponse<number>> => {
     const whereClause: Prisma.SessionWhereInput = {
@@ -507,13 +530,20 @@ export const revokeAllUserSessions = createOperation(
       whereClause.id = { not: exceptSessionId };
     }
 
-    const result = await prisma.session.updateMany({
+    // First get all sessions to revoke
+    const sessions = await prisma.session.findMany({
       where: whereClause,
-      data: {
-        isRevoked: true,
-      },
+      select: { id: true },
     });
 
-    return success(result.count);
+    // Revoke each session with reason
+    for (const session of sessions) {
+      await revokeSessionWithReason(prisma, session.id, reason, undefined, {
+        revokedBySessionId: exceptSessionId,
+        massRevocation: true,
+      });
+    }
+
+    return success(sessions.length);
   },
 );

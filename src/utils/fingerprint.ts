@@ -12,9 +12,6 @@ interface FingerprintOptions {
 
 /**
  * Generates a browser fingerprint based on request data
- *
- * @param options - Fingerprint generation options
- * @returns Response with the generated fingerprint or error
  */
 export async function generateFingerprint(
   options: FingerprintOptions,
@@ -46,6 +43,12 @@ export async function generateFingerprint(
       ["sec-ch-width", "width"],
       ["sec-ch-viewport-width", "viewport-width"],
       ["sec-ch-device-memory", "device-memory"],
+      ["sec-ch-color-gamut", "color-gamut"],
+      ["sec-ch-prefers-color-scheme", "color-scheme"],
+      ["sec-ch-prefers-reduced-motion", "reduced-motion"],
+      ["sec-fetch-dest", "fetch-dest"],
+      ["sec-fetch-mode", "fetch-mode"],
+      ["sec-fetch-site", "fetch-site"],
     ];
 
     // Add available header data
@@ -72,7 +75,7 @@ export async function generateFingerprint(
     }
 
     // Check if we have enough data for a useful fingerprint
-    if (factors.length < 2) {
+    if (factors.length < 3) {
       return fail(
         ErrorCode.FINGERPRINT_INSUFFICIENT_DATA,
         "Insufficient information to generate a reliable fingerprint",
@@ -104,11 +107,6 @@ export async function generateFingerprint(
 
 /**
  * Validates current fingerprint against stored fingerprint
- *
- * @param currentFingerprint - Fingerprint from current request
- * @param storedFingerprint - Fingerprint stored with session
- * @param config - Authentication configuration
- * @returns Response with validation result
  */
 export async function validateFingerprint(
   currentFingerprint: string,
@@ -123,39 +121,39 @@ export async function validateFingerprint(
 
     // Handle missing stored fingerprint
     if (!storedFingerprint) {
-      if (config.session.fingerprintOptions?.strictValidation) {
-        return fail(
-          ErrorCode.FINGERPRINT_MISSING,
-          "Session fingerprint missing",
-        );
-      }
-      return success(true);
+      return fail(ErrorCode.FINGERPRINT_MISSING, "Session fingerprint missing");
     }
 
     // Check for exact match
     const exactMatch = currentFingerprint === storedFingerprint;
 
+    if (exactMatch) {
+      return success(true);
+    }
+
     // For non-strict validation, calculate similarity for fuzzy matching
-    if (!exactMatch && !config.session.fingerprintOptions?.strictValidation) {
+    if (!config.session.fingerprintOptions?.strictValidation) {
       const similarity = calculateSimilarity(
         currentFingerprint,
         storedFingerprint,
       );
-      // Accept if similarity is above threshold (80%)
-      if (similarity > 0.8) {
+      // Increased threshold from 0.8 (80%) to 0.95 (95%)
+      if (similarity > 0.95) {
+        // Log the fingerprint change for auditing
+        config.logger?.warn("Fingerprint changed but within threshold", {
+          similarityScore: similarity,
+          storedFingerprint: `${storedFingerprint.substring(0, 8)}...`,
+          currentFingerprint: `${currentFingerprint.substring(0, 8)}...`,
+        });
         return success(true);
       }
     }
 
-    // In strict mode or below similarity threshold
-    if (!exactMatch) {
-      return fail(
-        ErrorCode.FINGERPRINT_MISMATCH,
-        "Session fingerprint mismatch detected",
-      );
-    }
-
-    return success(true);
+    // Failed validation
+    return fail(
+      ErrorCode.FINGERPRINT_MISMATCH,
+      "Session fingerprint mismatch detected",
+    );
   } catch (error) {
     return fail(
       ErrorCode.FINGERPRINT_VALIDATION_ERROR,
@@ -166,10 +164,6 @@ export async function validateFingerprint(
 
 /**
  * Calculates the similarity between two fingerprints
- *
- * @param a - First fingerprint
- * @param b - Second fingerprint
- * @returns Similarity score between 0 and 1
  */
 export function calculateSimilarity(a: string, b: string): number {
   if (a === b) return 1;

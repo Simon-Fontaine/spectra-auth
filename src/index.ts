@@ -348,8 +348,8 @@ export class AegisAuth {
     middlewares: Array<
       (
         ctx: AegisContext,
-        next: () => Promise<AegisResponse<any>>,
-      ) => Promise<AegisResponse<any>>
+        next: () => Promise<AegisResponse<unknown>>,
+      ) => Promise<AegisResponse<unknown>>
     >,
     handler: () => Promise<AegisResponse<T>>,
   ): Promise<AegisResponse<T>> {

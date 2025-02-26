@@ -2,7 +2,12 @@ import { z } from "zod";
 import { ErrorCode } from "../../constants";
 import { verifyPassword } from "../../security/password";
 import { createSession } from "../../security/session";
-import type { AegisContext, AegisResponse, AuthCookies } from "../../types";
+import type {
+  AegisAuthConfig,
+  AegisContext,
+  AegisResponse,
+  AuthCookies,
+} from "../../types";
 import { createOperation } from "../../utils/error";
 import { withRateLimit } from "../../utils/rate-limit";
 import { fail, success } from "../../utils/response";
@@ -27,11 +32,83 @@ export interface LoginResponse {
 }
 
 /**
+ * Calculates progressive lockout duration
+ */
+function calculateLockoutDuration(
+  attempts: number,
+  baseSeconds: number,
+): number {
+  // At least 1 minute lockout initially
+  const minLockoutSeconds = 60;
+
+  // For first few attempts, use shorter lockouts
+  if (attempts <= 3) {
+    return Math.max(minLockoutSeconds, (baseSeconds * attempts) / 3);
+  }
+
+  // For repeated failures, increase exponentially with a reasonable cap (24 hours)
+  const maxLockoutSeconds = 24 * 60 * 60;
+
+  // Exponential backoff: baseSeconds * 2^(attempts - threshold)
+  const duration = baseSeconds * 2 ** (attempts - 3);
+
+  return Math.min(duration, maxLockoutSeconds);
+}
+
+/**
+ * Tracks suspicious IP addresses in Redis
+ */
+async function trackSuspiciousIP(
+  ipAddress: string,
+  userId: string,
+  attempts: number,
+  config: AegisAuthConfig,
+): Promise<void> {
+  // Skip if Redis rate limiting is not available
+  if (!config.rateLimit.enabled || !config.rateLimit.redis) {
+    return;
+  }
+
+  try {
+    // Use Redis to track suspicious IPs
+    const redis = config.rateLimit.redis;
+    const key = `${config.rateLimit.prefix}:suspicious_ip:${ipAddress}`;
+
+    // Store IP with user ID and failure count
+    await redis.set(
+      key,
+      JSON.stringify({
+        ipAddress,
+        userId,
+        attempts,
+        lastAttempt: new Date().toISOString(),
+      }),
+    );
+
+    // Set expiry (keep for 24 hours)
+    await redis.expire(key, 24 * 60 * 60);
+
+    // If attempts reach a threshold, add to a high-risk IP set
+    if (attempts >= 10) {
+      await redis.sadd(`${config.rateLimit.prefix}:high_risk_ips`, ipAddress);
+      // Keep this set for 7 days
+      await redis.expire(
+        `${config.rateLimit.prefix}:high_risk_ips`,
+        7 * 24 * 60 * 60,
+      );
+    }
+  } catch (error) {
+    // Log but don't fail the login process
+    config.logger?.error("Failed to track suspicious IP", {
+      ipAddress,
+      userId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+/**
  * Authenticates a user with username/email and password
- *
- * @param ctx - Authentication context
- * @param request - Login request data
- * @returns Response with authentication result
  */
 export const login = createOperation(
   "login",
@@ -43,7 +120,7 @@ export const login = createOperation(
     request: LoginRequest,
   ): Promise<AegisResponse<LoginResponse>> => {
     // Apply rate limiting
-    return withRateLimit(ctx, "login", async () => {
+    return withRateLimit(ctx, "LOGIN", async () => {
       const { config, prisma, req } = ctx;
 
       // Validate input
@@ -139,26 +216,64 @@ export const login = createOperation(
         let lockUntil: Date | null = null;
 
         if (updatedAttempts >= config.login.maxFailedAttempts) {
-          // Use exponential backoff for lockout duration
-          const lockoutFactor = Math.min(
-            3, // Cap at 3x the configured duration
-            1 + Math.floor(updatedAttempts / config.login.maxFailedAttempts),
+          // Use progressive lockout duration
+          const lockoutDurationSeconds = calculateLockoutDuration(
+            updatedAttempts,
+            config.login.lockoutDurationSeconds,
           );
 
-          const lockoutDuration = createTime(
-            config.login.lockoutDurationSeconds * lockoutFactor,
-            "s",
-          );
-
+          const lockoutDuration = createTime(lockoutDurationSeconds, "s");
           lockUntil = lockoutDuration.getDate();
+
+          // Track suspicious IP if available
+          if (req.ipAddress) {
+            await trackSuspiciousIP(
+              req.ipAddress,
+              user.id,
+              updatedAttempts,
+              config,
+            );
+          }
+
+          // Send security alert for excessive failed attempts
+          if (
+            config.email.sendSecurityAlert &&
+            updatedAttempts >= config.login.maxFailedAttempts * 2
+          ) {
+            try {
+              await config.email.sendSecurityAlert({
+                ctx,
+                to: user.email,
+                subject: "Suspicious login activity detected",
+                activityType: "failed_login",
+                metadata: {
+                  attempts: updatedAttempts,
+                  ipAddress: req.ipAddress,
+                  userAgent: req.userAgent,
+                  lockedUntil: lockUntil.toISOString(),
+                },
+              });
+            } catch (error) {
+              // Log but continue
+              ctx.config.logger?.error("Failed to send security alert", {
+                userId: user.id,
+                error: error instanceof Error ? error.message : String(error),
+              });
+            }
+          }
 
           ctx.config.logger?.warn(
             "Account locked due to failed login attempts",
             {
               userId: user.id,
+              username: user.username,
+              email: user.email,
               failedAttempts: updatedAttempts,
+              lockoutDurationSeconds,
               lockedUntil: lockUntil.toISOString(),
               ipAddress: req.ipAddress,
+              userAgent: req.userAgent?.substring(0, 100),
+              timestamp: new Date().toISOString(),
             },
           );
         }

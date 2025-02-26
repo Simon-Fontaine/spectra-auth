@@ -34,6 +34,17 @@ export type EmailHandler = (options: {
 }) => Promise<void>;
 
 /**
+ * Security alert handler function type
+ */
+export type SecurityAlertHandler = (options: {
+  ctx: AegisContext;
+  to: string;
+  subject: string;
+  activityType: string;
+  metadata: Record<string, unknown>;
+}) => Promise<void>;
+
+/**
  * Logger configuration
  */
 export interface LoggerConfig {
@@ -181,6 +192,7 @@ export interface EmailConfig {
   sendPasswordReset: EmailHandler;
   sendEmailChange: EmailHandler;
   sendAccountDeletion: EmailHandler;
+  sendSecurityAlert?: SecurityAlertHandler;
 }
 
 /**

@@ -4,28 +4,24 @@ import { fail, success } from "../utils/response";
 
 /**
  * Validates the configuration for required fields and proper values
- *
- * @param config - Authentication configuration to validate
- * @returns Response with validation result
  */
 export function validateConfig(config: AegisAuthConfig): AegisResponse<true> {
-  // Validate session secret
-  if (config.session.secret === "CHANGE_THIS_DEFAULT_SECRET") {
-    return fail(
-      ErrorCode.CONFIG_ERROR,
-      "Session secret must be changed from the default value",
-    );
-  }
+  // Validate session secret in production
+  if (config.core.environment === "production") {
+    if (!process.env.SESSION_TOKEN_SECRET) {
+      return fail(
+        ErrorCode.CONFIG_ERROR,
+        "SESSION_TOKEN_SECRET environment variable must be set in production",
+      );
+    }
 
-  // Validate CSRF secret if enabled
-  if (
-    config.csrf.enabled &&
-    config.csrf.secret === "CHANGE_THIS_DEFAULT_SECRET"
-  ) {
-    return fail(
-      ErrorCode.CONFIG_ERROR,
-      "CSRF secret must be changed from the default value when CSRF is enabled",
-    );
+    // Validate CSRF secret if enabled
+    if (config.csrf.enabled && !process.env.CSRF_TOKEN_SECRET) {
+      return fail(
+        ErrorCode.CONFIG_ERROR,
+        "CSRF_TOKEN_SECRET environment variable must be set in production when CSRF is enabled",
+      );
+    }
   }
 
   // Validate rate limiting configuration if enabled
@@ -100,6 +96,15 @@ export function validateConfig(config: AegisAuthConfig): AegisResponse<true> {
     return fail(
       ErrorCode.CONFIG_ERROR,
       "Verification token expiry must be greater than zero",
+    );
+  }
+
+  // Password configuration validation
+  const minLength = config.password.rules.minLength;
+  if (minLength < 8) {
+    return fail(
+      ErrorCode.CONFIG_ERROR,
+      "Password minimum length should be at least 8 characters for security",
     );
   }
 

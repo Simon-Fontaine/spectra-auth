@@ -44,6 +44,8 @@ export function buildConfig(
       ipDetection: defaultIPDetectionOptions,
     };
 
+    validateRequiredSecrets();
+
     // Deep merge with user configuration
     const config = merge({}, defaultConfig, userConfig);
 
@@ -74,5 +76,22 @@ export function buildConfig(
       ErrorCode.CONFIG_ERROR,
       `Failed to build configuration: ${error instanceof Error ? error.message : String(error)}`,
     );
+  }
+}
+
+function validateRequiredSecrets(): void {
+  // Check that required secrets are available
+  if (process.env.NODE_ENV === "production") {
+    if (!process.env.SESSION_TOKEN_SECRET) {
+      throw new Error(
+        "SESSION_TOKEN_SECRET environment variable is required in production",
+      );
+    }
+
+    if (!process.env.CSRF_TOKEN_SECRET) {
+      throw new Error(
+        "CSRF_TOKEN_SECRET environment variable is required in production",
+      );
+    }
   }
 }

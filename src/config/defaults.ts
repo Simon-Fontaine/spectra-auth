@@ -77,7 +77,17 @@ export const defaultPasswordConfig: PasswordConfig = {
  * Default session configuration
  */
 export const defaultSessionConfig: SessionConfig = {
-  secret: process.env.SESSION_TOKEN_SECRET || "CHANGE_THIS_DEFAULT_SECRET",
+  get secret(): string {
+    if (
+      process.env.NODE_ENV === "production" &&
+      !process.env.SESSION_TOKEN_SECRET
+    ) {
+      throw new Error(
+        "SESSION_TOKEN_SECRET environment variable must be set in production for secure operation",
+      );
+    }
+    return process.env.SESSION_TOKEN_SECRET || "SESSION_SECRET_DEV_ONLY";
+  },
   tokenLength: 64,
   refreshIntervalSeconds: 60 * 60, // 1 hour
   absoluteMaxLifetimeSeconds: 7 * 24 * 60 * 60, // 7 days
@@ -97,8 +107,8 @@ export const defaultSessionConfig: SessionConfig = {
   },
   fingerprintOptions: {
     enabled: true,
-    includeIp: false,
-    strictValidation: false,
+    includeIp: true,
+    strictValidation: true,
     maxDevicesPerUser: 5,
   },
 };
@@ -108,7 +118,17 @@ export const defaultSessionConfig: SessionConfig = {
  */
 export const defaultCsrfConfig: CsrfConfig = {
   enabled: true,
-  secret: process.env.CSRF_TOKEN_SECRET || "CHANGE_THIS_DEFAULT_SECRET",
+  get secret(): string {
+    if (
+      process.env.NODE_ENV === "production" &&
+      !process.env.CSRF_TOKEN_SECRET
+    ) {
+      throw new Error(
+        "CSRF_TOKEN_SECRET environment variable must be set in production when CSRF protection is enabled",
+      );
+    }
+    return process.env.CSRF_TOKEN_SECRET || "CSRF_SECRET_DEV_ONLY";
+  },
   tokenLength: 32,
   cookie: {
     name: "aegis.csrf",
@@ -213,6 +233,9 @@ export const defaultEmailConfig: EmailConfig = {
   },
   sendAccountDeletion: async () => {
     throw new Error("Account deletion handler not configured");
+  },
+  sendSecurityAlert: async () => {
+    throw new Error("Security alert handler not configured");
   },
 };
 

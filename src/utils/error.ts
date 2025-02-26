@@ -13,14 +13,69 @@ interface ErrorMetadata {
 }
 
 /**
+ * Sanitizes error details to prevent sensitive information leakage
+ */
+function sanitizeErrorDetails(
+  error: unknown,
+  logger?: LoggerConfig,
+): Record<string, unknown> | undefined {
+  // No details for non-Error objects
+  if (!(error instanceof Error)) {
+    return undefined;
+  }
+
+  // Patterns that might indicate sensitive information
+  const sensitivePatterns = [
+    /password/i,
+    /secret/i,
+    /token/i,
+    /key/i,
+    /credential/i,
+    /auth/i,
+    /hash/i,
+    /salt/i,
+    /sign/i,
+    /crypt/i,
+  ];
+
+  const message = error.message;
+
+  // Check if error message contains sensitive information
+  const containsSensitiveInfo = sensitivePatterns.some((pattern) =>
+    pattern.test(message),
+  );
+
+  // Always log the actual error for debugging
+  logger?.debug("Original error details", {
+    errorMessage: message,
+    errorStack: error.stack,
+    errorName: error.name,
+  });
+
+  // In production, never return sensitive details
+  if (process.env.NODE_ENV === "production") {
+    return undefined;
+  }
+
+  // In development, sanitize sensitive info
+  if (containsSensitiveInfo) {
+    return {
+      safeMessage: "Error details hidden for security",
+      errorType: error.name,
+    };
+  }
+
+  // For non-sensitive errors in development, provide more details
+  return {
+    originalError: message,
+    errorType: error.name,
+    // Only return first few lines of stack for security
+    stack: error.stack?.split("\n").slice(0, 3).join("\n"),
+  };
+}
+
+/**
  * Properly handles and logs an operation error
- *
- * @param error - The caught error
- * @param logger - Optional logger instance
- * @param errorCode - Error code for the response
- * @param defaultMessage - Default user-facing message
- * @param metadata - Additional metadata for logging
- * @returns A properly formatted error response
  */
 export function handleError<T>(
   error: unknown,
@@ -42,25 +97,12 @@ export function handleError<T>(
     ...metadata,
   });
 
-  // Return a standardized error response
-  return fail(
-    errorCode,
-    defaultMessage,
-    // Only include detailed error information in development
-    process.env.NODE_ENV !== "production"
-      ? { originalError: errorMessage }
-      : undefined,
-  );
+  // Return a standardized error response with sanitized details
+  return fail(errorCode, defaultMessage, sanitizeErrorDetails(error, logger));
 }
 
 /**
  * Creates a tagged operation to simplify error handling patterns
- *
- * @param operationName - Name of the operation for logging
- * @param errorCode - Error code to use if the operation fails
- * @param defaultMessage - Default error message
- * @param logger - Optional logger instance
- * @returns A function wrapper with standardized error handling
  */
 export function createOperation<T>(
   operationName: string,
@@ -103,9 +145,6 @@ export function createOperation<T>(
 
 /**
  * Asserts a condition, throwing an error if the condition is false
- *
- * @param condition - Condition to assert
- * @param message - Error message if assertion fails
  */
 export function assert(condition: unknown, message: string): asserts condition {
   if (!condition) {

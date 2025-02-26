@@ -1,4 +1,4 @@
-import { Security } from "../constants";
+import { ErrorCode, Security } from "../constants";
 import type {
   AegisAuthConfig,
   AegisResponse,
@@ -12,13 +12,10 @@ import { createHmac, encodeBase64, generateRandomBytes } from "./crypto";
 
 /**
  * Generates a secure random session token
- *
- * @param config - Authentication configuration
- * @returns Response with token and hash
  */
 export const generateSessionToken = createOperation(
   "generateSessionToken",
-  "SESSION_TOKEN_ERROR",
+  ErrorCode.SESSION_TOKEN_ERROR,
   "Failed to generate session token",
 )(
   async (
@@ -45,7 +42,7 @@ export const generateSessionToken = createOperation(
     );
 
     if (!hashResponse.success) {
-      return fail("SESSION_TOKEN_ERROR", "Failed to create token hash");
+      return fail(ErrorCode.SESSION_TOKEN_ERROR, "Failed to create token hash");
     }
 
     return success({
@@ -57,15 +54,10 @@ export const generateSessionToken = createOperation(
 
 /**
  * Verifies a session token against its hash
- *
- * @param token - Session token to verify
- * @param hash - Hash to verify against
- * @param config - Authentication configuration
- * @returns Response with verification result
  */
 export const verifySessionToken = createOperation(
   "verifySessionToken",
-  "SESSION_TOKEN_ERROR",
+  ErrorCode.SESSION_TOKEN_ERROR,
   "Failed to verify session token",
 )(
   async (
@@ -94,13 +86,10 @@ export const verifySessionToken = createOperation(
 
 /**
  * Generates a secure random CSRF token
- *
- * @param config - Authentication configuration
- * @returns Response with token and hash
  */
 export const generateCsrfToken = createOperation(
   "generateCsrfToken",
-  "CSRF_INVALID",
+  ErrorCode.CSRF_INVALID,
   "Failed to generate CSRF token",
 )(
   async (
@@ -127,7 +116,7 @@ export const generateCsrfToken = createOperation(
     );
 
     if (!hashResponse.success) {
-      return fail("CSRF_INVALID", "Failed to create token hash");
+      return fail(ErrorCode.CSRF_INVALID, "Failed to create token hash");
     }
 
     return success({
@@ -139,15 +128,10 @@ export const generateCsrfToken = createOperation(
 
 /**
  * Verifies a CSRF token against its hash
- *
- * @param token - CSRF token to verify
- * @param hash - Hash to verify against
- * @param config - Authentication configuration
- * @returns Response with verification result
  */
 export const verifyCsrfToken = createOperation(
   "verifyCsrfToken",
-  "CSRF_INVALID",
+  ErrorCode.CSRF_INVALID,
   "Failed to verify CSRF token",
 )(
   async (
@@ -176,13 +160,10 @@ export const verifyCsrfToken = createOperation(
 
 /**
  * Generates a secure random verification token
- *
- * @param config - Authentication configuration
- * @returns Response with verification token
  */
 export const generateVerificationToken = createOperation(
   "generateVerificationToken",
-  "VERIFICATION_INVALID",
+  ErrorCode.VERIFICATION_INVALID,
   "Failed to generate verification token",
 )(
   async (

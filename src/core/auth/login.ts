@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ErrorCode } from "../../constants";
+import { ErrorCode, Time } from "../../constants";
 import { verifyPassword } from "../../security/password";
 import { createSession } from "../../security/session";
 import type {
@@ -39,7 +39,7 @@ function calculateLockoutDuration(
   baseSeconds: number,
 ): number {
   // At least 1 minute lockout initially
-  const minLockoutSeconds = 60;
+  const minLockoutSeconds = Time.MINUTE / Time.SECOND;
 
   // For first few attempts, use shorter lockouts
   if (attempts <= 3) {
@@ -47,7 +47,7 @@ function calculateLockoutDuration(
   }
 
   // For repeated failures, increase exponentially with a reasonable cap (24 hours)
-  const maxLockoutSeconds = 24 * 60 * 60;
+  const maxLockoutSeconds = Time.DAY / Time.SECOND;
 
   // Exponential backoff: baseSeconds * 2^(attempts - threshold)
   const duration = baseSeconds * 2 ** (attempts - 3);
@@ -86,7 +86,7 @@ async function trackSuspiciousIP(
     );
 
     // Set expiry (keep for 24 hours)
-    await redis.expire(key, 24 * 60 * 60);
+    await redis.expire(key, Time.DAY / Time.SECOND);
 
     // If attempts reach a threshold, add to a high-risk IP set
     if (attempts >= 10) {
@@ -94,7 +94,7 @@ async function trackSuspiciousIP(
       // Keep this set for 7 days
       await redis.expire(
         `${config.rateLimit.prefix}:high_risk_ips`,
-        7 * 24 * 60 * 60,
+        Time.WEEK / Time.SECOND,
       );
     }
   } catch (error) {
@@ -195,7 +195,7 @@ export const login = createOperation(
       // Add exponential backoff delay for repeated failures
       if (user.failedLoginAttempts > 0) {
         const delayMs = Math.min(
-          2000, // Cap at 2 seconds max
+          Time.SECOND * 2, // Cap at 2 seconds max
           2 ** Math.min(user.failedLoginAttempts, 10) * 100,
         );
         await new Promise((resolve) => setTimeout(resolve, delayMs));

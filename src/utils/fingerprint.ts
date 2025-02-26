@@ -137,7 +137,6 @@ export async function validateFingerprint(
         currentFingerprint,
         storedFingerprint,
       );
-      // Increased threshold from 0.8 (80%) to 0.95 (95%)
       if (similarity > 0.95) {
         // Log the fingerprint change for auditing
         config.logger?.warn("Fingerprint changed but within threshold", {

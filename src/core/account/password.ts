@@ -14,8 +14,6 @@ import { withRateLimit } from "../../utils/rate-limit";
 import { fail, success } from "../../utils/response";
 import { addTime } from "../../utils/time";
 
-// Password reset endpoints
-
 /**
  * Initiates password reset by sending a reset link
  */
@@ -307,8 +305,6 @@ export const completePasswordReset = createOperation(
     });
   },
 );
-
-// Change password endpoint
 
 /**
  * Changes password for an authenticated user

@@ -2,11 +2,13 @@ import type { ErrorCodeType } from "../constants";
 import type { AegisError, AegisResponse } from "../types";
 
 /**
+ * Internal response utilities for standardizing operation results within the library.
+ * These functions handle the internal data structure of responses and are not concerned
+ * with HTTP-specific formatting.
+ */
+
+/**
  * Creates a successful response object
- *
- * @param data - The data to include in the response
- * @param metadata - Optional metadata to include
- * @returns A typed success response
  */
 export function success<T>(
   data: T,
@@ -22,12 +24,6 @@ export function success<T>(
 
 /**
  * Creates a failure response object
- *
- * @param code - Error code identifying the type of error
- * @param message - Human-readable error message
- * @param details - Optional details about the error
- * @param metadata - Optional metadata to include
- * @returns A typed error response
  */
 export function fail<T>(
   code: ErrorCodeType,
@@ -51,9 +47,6 @@ export function fail<T>(
 
 /**
  * Propagates an error from a previous operation
- *
- * @param response - The previous error response
- * @returns A typed error response with the same error
  */
 export function propagate<T, U>(response: AegisResponse<T>): AegisResponse<U> {
   if (response.success) {
@@ -70,10 +63,6 @@ export function propagate<T, U>(response: AegisResponse<T>): AegisResponse<U> {
 
 /**
  * Merges two successful responses
- *
- * @param responseA - First successful response
- * @param responseB - Second successful response
- * @returns A merged successful response
  */
 export function mergeResponses<T, U>(
   responseA: AegisResponse<T>,
@@ -109,10 +98,6 @@ export function mergeResponses<T, U>(
 
 /**
  * Transforms a successful response's data
- *
- * @param response - Original response
- * @param transformer - Function to transform the data
- * @returns A new response with transformed data
  */
 export function transformResponse<T, U>(
   response: AegisResponse<T>,

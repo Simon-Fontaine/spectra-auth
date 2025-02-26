@@ -3,6 +3,12 @@ import type { AegisError, AegisResponse } from "../types";
 import { securityHeaders } from "./headers";
 
 /**
+ * HTTP response formatting utilities.
+ * These functions transform internal AegisResponse objects into HTTP-specific
+ * responses with appropriate status codes, headers, and body formatting.
+ */
+
+/**
  * Standard API response format
  */
 export interface ApiResponse<T> {
@@ -36,10 +42,6 @@ type FormattedResponse<T> = {
 
 /**
  * Builds response headers with security headers and custom headers
- *
- * @param customHeaders - Additional headers to include
- * @param cookies - Cookies to set
- * @returns Combined headers object
  */
 function buildResponseHeaders(
   customHeaders: Record<string, string> = {},
@@ -61,10 +63,6 @@ function buildResponseHeaders(
 
 /**
  * Formats a successful response with standard structure
- *
- * @param data - Response data
- * @param options - Response options (headers, cookies, status)
- * @returns Formatted response object
  */
 export function formatSuccessResponse<T>(
   data: T,
@@ -84,10 +82,6 @@ export function formatSuccessResponse<T>(
 
 /**
  * Formats an error response with standard structure
- *
- * @param error - Error object
- * @param options - Response options (headers, cookies, status)
- * @returns Formatted response object
  */
 export function formatErrorResponse<T = null>(
   error: AegisError,
@@ -120,7 +114,7 @@ export function formatErrorResponse<T = null>(
     headers: buildResponseHeaders(headers, cookies),
     body: {
       success: false,
-      data: null as unknown as T, // Type assertion to make it compatible
+      data: null as unknown as T,
       error: {
         code: error.code,
         message: error.message,
@@ -132,10 +126,6 @@ export function formatErrorResponse<T = null>(
 
 /**
  * Formats any response (success or error) with standard structure
- *
- * @param response - AegisResponse from an operation
- * @param options - Response options (headers, cookies, status)
- * @returns Formatted response object
  */
 export function formatResponse<T>(
   response: AegisResponse<T>,

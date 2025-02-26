@@ -1,5 +1,5 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
-import { ErrorCode, SessionState } from "../constants";
+import { ErrorCode, SessionState, Time } from "../constants";
 import { createCsrfCookie, createSessionCookie } from "../http/cookies";
 import type {
   AegisAuthConfig,
@@ -308,7 +308,7 @@ export const validateSession = createOperation(
 
     const now = Date.now();
     const lastUpdated = session.updatedAt.getTime();
-    const refreshInterval = config.session.refreshIntervalSeconds * 1000;
+    const refreshInterval = config.session.refreshIntervalSeconds * Time.SECOND;
     const rotateThreshold =
       refreshInterval * (config.session.rotationFraction || 0.5);
     const needsRotation = now - lastUpdated > rotateThreshold;

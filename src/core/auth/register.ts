@@ -51,7 +51,6 @@ export interface RegisterRequest {
   username: string;
   email: string;
   password: string;
-  invitationCode?: string;
 }
 
 // Registration response type
@@ -64,10 +63,6 @@ export interface RegisterResponse {
 
 /**
  * Registers a new user
- *
- * @param ctx - Authentication context
- * @param request - Registration request data
- * @returns Response with registration result
  */
 export const register = createOperation(
   "register",
@@ -103,33 +98,17 @@ export const register = createOperation(
 
       // Check for invitation if required
       if (config.registration.requireInvitation) {
-        const { invitationCode } = request;
-
-        if (!invitationCode) {
-          return fail(
-            ErrorCode.REGISTER_INVITATION_REQUIRED,
-            "Invitation code is required for registration",
-          );
-        }
-
         const invitation = await prisma.invitation.findFirst({
           where: {
-            id: invitationCode,
             email,
+            expiresAt: { gt: new Date() },
           },
         });
 
         if (!invitation) {
           return fail(
             ErrorCode.REGISTER_INVITATION_REQUIRED,
-            "Invalid invitation code",
-          );
-        }
-
-        if (invitation.expiresAt < new Date()) {
-          return fail(
-            ErrorCode.REGISTER_INVITATION_EXPIRED,
-            "Invitation has expired",
+            "Valid invitation is required for registration",
           );
         }
       }
@@ -195,10 +174,10 @@ export const register = createOperation(
         });
 
         // If using invitations, delete the used invitation
-        if (config.registration.requireInvitation && request.invitationCode) {
-          await tx.invitation.delete({
+        if (config.registration.requireInvitation) {
+          await tx.invitation.deleteMany({
             where: {
-              id: request.invitationCode,
+              email,
             },
           });
         }

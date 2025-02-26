@@ -1,6 +1,6 @@
 import type { Prisma, VerificationType } from "@prisma/client";
 import { z } from "zod";
-import { Endpoints, ErrorCode } from "../../constants";
+import { Endpoints, ErrorCode, RegexPatterns } from "../../constants";
 import { generateVerificationToken } from "../../security/tokens";
 import type {
   AegisContext,
@@ -11,8 +11,6 @@ import { createOperation } from "../../utils/error";
 import { withRateLimit } from "../../utils/rate-limit";
 import { fail, success } from "../../utils/response";
 import { addTime } from "../../utils/time";
-
-// Email verification endpoints
 
 /**
  * Initiates email verification by sending a verification link
@@ -150,13 +148,12 @@ export const completeEmailVerification = createOperation(
   });
 });
 
-// Email change endpoints
-
 // Request schema
 const changeEmailSchema = z.object({
   newEmail: z
     .string()
     .email("Invalid email address")
+    .regex(RegexPatterns.EMAIL, "Invalid email format")
     .transform((v) => v.toLowerCase()),
 });
 

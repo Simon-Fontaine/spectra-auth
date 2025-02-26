@@ -40,7 +40,7 @@ function getFullCookieOptions(
  *
  * @param host - The request host (e.g., "app.example.com")
  * @param useRootDomain - Whether to use the root domain instead of the full hostname
- * @returns The appropriate domain value or undefined for localhost
+ * @returns The appropriate domain value or undefined for localhost or IP addresses
  */
 export function getDomainFromHost(
   host: string,
@@ -52,6 +52,14 @@ export function getDomainFromHost(
 
   // Remove port if present
   const hostWithoutPort = host.split(":")[0];
+
+  // If host is an IP address (IPv4 or IPv6), do not set domain attribute
+  if (
+    /^\d+\.\d+\.\d+\.\d+$/.test(hostWithoutPort) ||
+    hostWithoutPort.includes(":")
+  ) {
+    return undefined;
+  }
 
   const parts = hostWithoutPort.split(".");
   if (parts.length <= 1) {

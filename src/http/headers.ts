@@ -8,10 +8,10 @@ import { fail, success } from "../utils/response";
 export const securityHeaders = {
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "DENY",
-  "X-XSS-Protection": "1; mode=block",
   "Referrer-Policy": "strict-origin-when-cross-origin",
   "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
   "Content-Security-Policy": "default-src 'self';",
+  "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
 };
 
 /**

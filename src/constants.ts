@@ -81,15 +81,15 @@ export type ErrorCodeType = (typeof ErrorCode)[keyof typeof ErrorCode];
  * Authentication endpoints that can be rate-limited
  */
 export const Endpoints = {
-  LOGIN: "login",
-  REGISTER: "register",
-  VERIFY_EMAIL: "verifyEmail",
-  INITIATE_PASSWORD_RESET: "initiatePasswordReset",
-  COMPLETE_PASSWORD_RESET: "completePasswordReset",
-  INITIATE_EMAIL_CHANGE: "initiateEmailChange",
-  COMPLETE_EMAIL_CHANGE: "completeEmailChange",
-  INITIATE_ACCOUNT_DELETION: "initiateAccountDeletion",
-  COMPLETE_ACCOUNT_DELETION: "completeAccountDeletion",
+  LOGIN: "LOGIN",
+  REGISTER: "REGISTER",
+  VERIFY_EMAIL: "VERIFY_EMAIL",
+  INITIATE_PASSWORD_RESET: "INITIATE_PASSWORD_RESET",
+  COMPLETE_PASSWORD_RESET: "COMPLETE_PASSWORD_RESET",
+  INITIATE_EMAIL_CHANGE: "INITIATE_EMAIL_CHANGE",
+  COMPLETE_EMAIL_CHANGE: "COMPLETE_EMAIL_CHANGE",
+  INITIATE_ACCOUNT_DELETION: "INITIATE_ACCOUNT_DELETION",
+  COMPLETE_ACCOUNT_DELETION: "COMPLETE_ACCOUNT_DELETION",
 } as const;
 
 export type EndpointName = (typeof Endpoints)[keyof typeof Endpoints];

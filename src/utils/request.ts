@@ -4,6 +4,7 @@ import type {
   AegisContext,
   AuthenticatedUser,
   Endpoints,
+  SessionWithRelations,
 } from "../types";
 import { getCsrfToken, getSessionToken } from "./cookies";
 import { extractClientIP } from "./ip";
@@ -81,7 +82,7 @@ export function createContext(
 export function createAuthenticatedContext(
   context: AegisContext,
   user: AuthenticatedUser,
-  session: unknown, // Session type would be more specific
+  session: SessionWithRelations,
 ): AegisContext {
   return {
     ...context,

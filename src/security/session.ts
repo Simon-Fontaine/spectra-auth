@@ -1,4 +1,4 @@
-import type { Prisma, PrismaClient, Session } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 import { ErrorCode, SessionState } from "../constants";
 import type {
   AegisAuthConfig,
@@ -8,6 +8,7 @@ import type {
   SessionMetadata,
   SessionToken,
   SessionValidationResult,
+  SessionWithRelations,
 } from "../types";
 import { createCsrfCookie, createSessionCookie } from "../utils/cookies";
 import { createOperation } from "../utils/error";
@@ -34,7 +35,9 @@ export const createSession = createOperation(
     prisma: PrismaClient,
     config: AegisAuthConfig,
     options: CreateSessionOptions,
-  ): Promise<AegisResponse<{ session: Session; cookies: AuthCookies }>> => {
+  ): Promise<
+    AegisResponse<{ session: SessionWithRelations; cookies: AuthCookies }>
+  > => {
     const {
       userId,
       ipAddress,
@@ -300,7 +303,7 @@ export const validateSession = createOperation(
     }
 
     // Extract session metadata
-    const metadata = (session.metadata as SessionMetadata) || {};
+    const metadata = (session.metadata as SessionMetadata | null) || {};
 
     // Verify fingerprint if enabled
     if (config.session.fingerprintOptions?.enabled) {

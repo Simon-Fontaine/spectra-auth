@@ -1,12 +1,30 @@
-import type { PrismaClient } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 import type { Ratelimit } from "@upstash/ratelimit";
 import type { EndpointName } from "../constants";
 import type { AegisAuthConfig } from "./config";
+import type { CsrfToken, SessionToken } from "./security";
 
 /**
  * Rate limiter collection indexed by endpoint
  */
 export type Endpoints = Partial<Record<EndpointName, Ratelimit>>;
+
+/**
+ * Type for Session with User and UserRoles included
+ */
+export type SessionWithRelations = Prisma.SessionGetPayload<{
+  include: {
+    user: {
+      include: {
+        userRoles: {
+          include: {
+            role: true;
+          };
+        };
+      };
+    };
+  };
+}>;
 
 /**
  * Authenticated user information (safe to expose to application)
@@ -42,7 +60,8 @@ export interface AegisContext {
   req: {
     ipAddress?: string;
     userAgent?: string;
-    csrfToken?: string;
+    csrfToken?: CsrfToken;
+    sessionToken?: SessionToken;
     headers: Headers;
   };
 
@@ -50,7 +69,7 @@ export interface AegisContext {
   auth: {
     isAuthenticated: boolean;
     user?: AuthenticatedUser | null;
-    session?: unknown | null; // Will use Prisma type
+    session?: SessionWithRelations | null;
   };
 }
 

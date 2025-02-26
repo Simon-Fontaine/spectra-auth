@@ -62,14 +62,16 @@ export function handleError<T>(
  * @param logger - Optional logger instance
  * @returns A function wrapper with standardized error handling
  */
-export function createOperation<T, P extends unknown[]>(
+export function createOperation<T>(
   operationName: string,
   errorCode: ErrorCodeType,
   defaultMessage: string,
   logger?: LoggerConfig,
 ) {
-  return (operation: (...args: P) => Promise<AegisResponse<T>>) => {
-    return async (...args: P): Promise<AegisResponse<T>> => {
+  return <Fn extends (...args: never[]) => Promise<AegisResponse<T>>>(
+    operation: Fn,
+  ): Fn => {
+    return (async (...args: Parameters<Fn>): Promise<AegisResponse<T>> => {
       try {
         logger?.debug(`${operationName} operation started`, {
           timestamp: new Date().toISOString(),
@@ -95,7 +97,7 @@ export function createOperation<T, P extends unknown[]>(
           operationName,
         });
       }
-    };
+    }) as Fn;
   };
 }
 

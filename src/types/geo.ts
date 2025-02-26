@@ -1,3 +1,6 @@
+/**
+ * Geographic location information for a session
+ */
 export interface SessionLocation {
   [key: string]: string | number | null | undefined;
   country?: string | null;
@@ -7,6 +10,9 @@ export interface SessionLocation {
   longitude?: number | null;
 }
 
+/**
+ * Device information for a session
+ */
 export interface SessionDevice {
   [key: string]: string | null | undefined;
   name?: string | null;

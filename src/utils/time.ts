@@ -1,153 +1,192 @@
-type TimeFormat = "ms" | "s" | "m" | "h" | "d" | "w" | "y";
-type Time = `${number}${TimeFormat}`;
+import { Time } from "../constants";
 
+type TimeUnit = "ms" | "s" | "m" | "h" | "d" | "w" | "mo" | "y";
+type TimeValue = `${number}${TimeUnit}`;
+
+/**
+ * Time utility for handling durations and timestamps
+ */
 export interface TimeObject {
-  t: Time;
-  value: number;
-  tFormat: TimeFormat;
-  toMilliseconds: () => number;
-  toSeconds: () => number;
-  toMinutes: () => number;
-  toHours: () => number;
-  toDays: () => number;
-  toWeeks: () => number;
-  toYears: () => number;
-  getDate: () => Date;
-  add: (other: Time | TimeObject) => TimeObject;
-  subtract: (other: Time | TimeObject) => TimeObject;
-  multiply: (factor: number) => TimeObject;
-  divide: (divisor: number) => TimeObject;
-  equals: (other: Time | TimeObject) => boolean;
-  lessThan: (other: Time | TimeObject) => boolean;
-  greaterThan: (other: Time | TimeObject) => boolean;
-  format: (pattern: string) => string;
-  fromNow: () => string;
-  ago: () => string;
+  readonly value: number;
+  readonly unit: TimeUnit;
+  toMilliseconds(): number;
+  toSeconds(): number;
+  toMinutes(): number;
+  toHours(): number;
+  toDays(): number;
+  toWeeks(): number;
+  toMonths(): number;
+  toYears(): number;
+  getDate(from?: Date): Date;
+  add(other: TimeObject | TimeValue | number): TimeObject;
+  subtract(other: TimeObject | TimeValue | number): TimeObject;
+  multiply(factor: number): TimeObject;
+  divide(divisor: number): TimeObject;
+  equals(other: TimeObject | TimeValue | number): boolean;
+  lessThan(other: TimeObject | TimeValue | number): boolean;
+  greaterThan(other: TimeObject | TimeValue | number): boolean;
+  format(options?: Intl.RelativeTimeFormatOptions): string;
+  fromNow(options?: Intl.RelativeTimeFormatOptions): string;
+  ago(options?: Intl.RelativeTimeFormatOptions): string;
 }
 
-export const createTime = (value: number, format: TimeFormat): TimeObject => {
-  const toMilliseconds = (): number => {
-    switch (format) {
+/**
+ * Creates a TimeObject from a value and unit
+ *
+ * @param value - Numeric value
+ * @param unit - Time unit
+ * @returns A TimeObject instance
+ */
+export function createTime(value: number, unit: TimeUnit = "ms"): TimeObject {
+  const convertToMs = (val: number, u: TimeUnit): number => {
+    switch (u) {
       case "ms":
-        return value;
+        return val;
       case "s":
-        return value * 1000;
+        return val * Time.SECOND;
       case "m":
-        return value * 1000 * 60;
+        return val * Time.MINUTE;
       case "h":
-        return value * 1000 * 60 * 60;
+        return val * Time.HOUR;
       case "d":
-        return value * 1000 * 60 * 60 * 24;
+        return val * Time.DAY;
       case "w":
-        return value * 1000 * 60 * 60 * 24 * 7;
+        return val * Time.WEEK;
+      case "mo":
+        return val * Time.MONTH;
       case "y":
-        return value * 1000 * 60 * 60 * 24 * 365;
+        return val * Time.YEAR;
     }
   };
 
-  const time: TimeObject = {
-    t: `${value}${format}` as Time,
+  const ms = convertToMs(value, unit);
+
+  const normalize = (other: TimeObject | TimeValue | number): number => {
+    if (typeof other === "number") {
+      return other; // Assume milliseconds
+    }
+    if (typeof other === "string") {
+      return parseTime(other).toMilliseconds();
+    }
+    return other.toMilliseconds();
+  };
+
+  const timeObject: TimeObject = {
     value,
-    tFormat: format,
-    toMilliseconds,
-    toSeconds: () => time.toMilliseconds() / 1000,
-    toMinutes: () => time.toSeconds() / 60,
-    toHours: () => time.toMinutes() / 60,
-    toDays: () => time.toHours() / 24,
-    toWeeks: () => time.toDays() / 7,
-    toYears: () => time.toDays() / 365,
-    getDate: () => new Date(Date.now() + time.toMilliseconds()),
-    add: (other: Time | TimeObject) => {
-      const otherMs =
-        typeof other === "string"
-          ? parseTime(other).toMilliseconds()
-          : other.toMilliseconds();
-      return createTime(time.toMilliseconds() + otherMs, "ms");
+    unit,
+
+    toMilliseconds: () => ms,
+    toSeconds: () => ms / Time.SECOND,
+    toMinutes: () => ms / Time.MINUTE,
+    toHours: () => ms / Time.HOUR,
+    toDays: () => ms / Time.DAY,
+    toWeeks: () => ms / Time.WEEK,
+    toMonths: () => ms / Time.MONTH,
+    toYears: () => ms / Time.YEAR,
+
+    getDate: (from = new Date()) => new Date(from.getTime() + ms),
+
+    add: (other) => createTime(ms + normalize(other), "ms"),
+    subtract: (other) => createTime(ms - normalize(other), "ms"),
+    multiply: (factor) => createTime(ms * factor, "ms"),
+    divide: (divisor) => createTime(ms / divisor, "ms"),
+
+    equals: (other) => ms === normalize(other),
+    lessThan: (other) => ms < normalize(other),
+    greaterThan: (other) => ms > normalize(other),
+
+    format: (options) => {
+      // Implementation using Intl.RelativeTimeFormat
+      const formatter = new Intl.RelativeTimeFormat("en", options);
+
+      if (Math.abs(ms) < Time.MINUTE) {
+        return formatter.format(Math.round(ms / Time.SECOND), "seconds");
+      }
+      if (Math.abs(ms) < Time.HOUR) {
+        return formatter.format(Math.round(ms / Time.MINUTE), "minutes");
+      }
+      if (Math.abs(ms) < Time.DAY) {
+        return formatter.format(Math.round(ms / Time.HOUR), "hours");
+      }
+      if (Math.abs(ms) < Time.WEEK) {
+        return formatter.format(Math.round(ms / Time.DAY), "days");
+      }
+      if (Math.abs(ms) < Time.MONTH) {
+        return formatter.format(Math.round(ms / Time.WEEK), "weeks");
+      }
+      if (Math.abs(ms) < Time.YEAR) {
+        return formatter.format(Math.round(ms / Time.MONTH), "months");
+      }
+      return formatter.format(Math.round(ms / Time.YEAR), "years");
     },
-    subtract: (other: Time | TimeObject) => {
-      const otherMs =
-        typeof other === "string"
-          ? parseTime(other).toMilliseconds()
-          : other.toMilliseconds();
-      return createTime(time.toMilliseconds() - otherMs, "ms");
+
+    fromNow: (options) => {
+      if (ms >= 0) {
+        return timeObject.format(options);
+      }
+      return timeObject.multiply(-1).ago(options);
     },
-    multiply: (factor: number) =>
-      createTime(time.toMilliseconds() * factor, "ms"),
-    divide: (divisor: number) =>
-      createTime(time.toMilliseconds() / divisor, "ms"),
-    equals: (other: Time | TimeObject) => {
-      const otherMs =
-        typeof other === "string"
-          ? parseTime(other).toMilliseconds()
-          : other.toMilliseconds();
-      return time.toMilliseconds() === otherMs;
-    },
-    lessThan: (other: Time | TimeObject) => {
-      const otherMs =
-        typeof other === "string"
-          ? parseTime(other).toMilliseconds()
-          : other.toMilliseconds();
-      return time.toMilliseconds() < otherMs;
-    },
-    greaterThan: (other: Time | TimeObject) => {
-      const otherMs =
-        typeof other === "string"
-          ? parseTime(other).toMilliseconds()
-          : other.toMilliseconds();
-      return time.toMilliseconds() > otherMs;
-    },
-    format: (pattern: string) => {
-      const date = time.getDate();
-      return pattern.replace(/YYYY|MM|DD|HH|mm|ss/g, (match) => {
-        switch (match) {
-          case "YYYY":
-            return date.getFullYear().toString();
-          case "MM":
-            return (date.getMonth() + 1).toString().padStart(2, "0");
-          case "DD":
-            return date.getDate().toString().padStart(2, "0");
-          case "HH":
-            return date.getHours().toString().padStart(2, "0");
-          case "mm":
-            return date.getMinutes().toString().padStart(2, "0");
-          case "ss":
-            return date.getSeconds().toString().padStart(2, "0");
-          default:
-            return match;
-        }
-      });
-    },
-    fromNow: () => {
-      const ms = time.toMilliseconds();
-      if (ms < 0) return time.ago();
-      if (ms < 1000) return "in a few seconds";
-      if (ms < 60000) return `in ${Math.round(ms / 1000)} seconds`;
-      if (ms < 3600000) return `in ${Math.round(ms / 60000)} minutes`;
-      if (ms < 86400000) return `in ${Math.round(ms / 3600000)} hours`;
-      if (ms < 604800000) return `in ${Math.round(ms / 86400000)} days`;
-      if (ms < 2629800000) return `in ${Math.round(ms / 604800000)} weeks`;
-      if (ms < 31557600000) return `in ${Math.round(ms / 2629800000)} months`;
-      return `in ${Math.round(ms / 31557600000)} years`;
-    },
-    ago: () => {
-      const ms = -time.toMilliseconds();
-      if (ms < 0) return time.fromNow();
-      if (ms < 1000) return "a few seconds ago";
-      if (ms < 60000) return `${Math.round(ms / 1000)} seconds ago`;
-      if (ms < 3600000) return `${Math.round(ms / 60000)} minutes ago`;
-      if (ms < 86400000) return `${Math.round(ms / 3600000)} hours ago`;
-      if (ms < 604800000) return `${Math.round(ms / 86400000)} days ago`;
-      if (ms < 2629800000) return `${Math.round(ms / 604800000)} weeks ago`;
-      if (ms < 31557600000) return `${Math.round(ms / 2629800000)} months ago`;
-      return `${Math.round(ms / 31557600000)} years ago`;
+
+    ago: (options) => {
+      if (ms >= 0) {
+        return timeObject.multiply(-1).format(options);
+      }
+      return timeObject.multiply(-1).fromNow(options);
     },
   };
 
-  return time;
-};
+  return timeObject;
+}
 
-export const parseTime = (time: Time): TimeObject => {
-  const match = time.match(/^(\d+)(ms|s|m|h|d|w|y)$/);
-  if (!match) throw new Error("Invalid time format");
-  return createTime(Number.parseInt(match[1]), match[2] as TimeFormat);
-};
+/**
+ * Parses a time string like "30d" or "2h" into a TimeObject
+ *
+ * @param timeString - String in the format "{number}{unit}"
+ * @returns A TimeObject instance
+ */
+export function parseTime(timeString: TimeValue): TimeObject {
+  const match = /^(\d+)(ms|s|m|h|d|w|mo|y)$/.exec(timeString);
+  if (!match) {
+    throw new Error(
+      `Invalid time string format: ${timeString}. Expected format like "30d" or "2h".`,
+    );
+  }
+
+  const value = Number.parseInt(match[1], 10);
+  const unit = match[2] as TimeUnit;
+
+  return createTime(value, unit);
+}
+
+/**
+ * Adjusts a date by adding the specified amount of time
+ *
+ * @param date - Base date
+ * @param amount - Amount of time to add
+ * @param unit - Time unit
+ * @returns A new date with the added time
+ */
+export function addTime(date: Date, amount: number, unit: TimeUnit): Date {
+  return createTime(amount, unit).getDate(date);
+}
+
+/**
+ * Checks if a date is expired (before current time)
+ *
+ * @param date - Date to check
+ * @returns True if the date is in the past
+ */
+export function isExpired(date: Date): boolean {
+  return date.getTime() < Date.now();
+}
+
+/**
+ * Calculates time remaining until a future date
+ *
+ * @param date - Future date
+ * @returns TimeObject representing the remaining time
+ */
+export function timeUntil(date: Date): TimeObject {
+  const remaining = date.getTime() - Date.now();
+  return createTime(remaining, "ms");
+}

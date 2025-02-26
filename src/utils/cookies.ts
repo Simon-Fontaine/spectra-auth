@@ -1,94 +1,192 @@
 import { parse as parseCookie, serialize as serializeCookie } from "cookie";
-import type { AegisAuthConfig, EnhancedCookieOptions } from "../types";
+import type {
+  AegisAuthConfig,
+  CookieOptions,
+  EnhancedCookieOptions,
+} from "../types";
 
-export function createEnhancedCookie(
+/**
+ * Creates a cookie string with enhanced options support
+ *
+ * @param name - Cookie name
+ * @param value - Cookie value
+ * @param options - Standard cookie options
+ * @param enhanced - Enhanced cookie options for modern browsers
+ * @returns A cookie string for Set-Cookie header
+ */
+export function createCookie(
   name: string,
   value: string,
-  options: EnhancedCookieOptions,
+  options: Omit<CookieOptions, "name">,
+  enhanced?: EnhancedCookieOptions,
 ): string {
-  const { partitioned, priority, ...standardOptions } = options;
+  let cookie = serializeCookie(name, value, {
+    ...options,
+    maxAge: options.maxAgeSeconds,
+  });
 
-  let cookie = serializeCookie(name, value, standardOptions);
-  if (partitioned) {
-    cookie += "; Partitioned";
-  }
+  // Add enhanced options if provided
+  if (enhanced) {
+    if (enhanced.partitioned) {
+      cookie += "; Partitioned";
+    }
 
-  if (priority) {
-    cookie += `; Priority=${priority}`;
+    if (enhanced.priority) {
+      cookie += `; Priority=${enhanced.priority}`;
+    }
   }
 
   return cookie;
 }
 
+/**
+ * Creates a session cookie with configuration
+ *
+ * @param sessionToken - Session token to store
+ * @param config - Auth configuration
+ * @returns A formatted session cookie string
+ */
 export function createSessionCookie(
   sessionToken: string,
   config: AegisAuthConfig,
 ): string {
   const { name, ...cookieOptions } = config.session.cookie;
 
-  const enhancedOptions = {
-    ...cookieOptions,
-    partitioned: config.session.enhancedCookieOptions?.partitioned,
-    priority: config.session.enhancedCookieOptions?.priority || "high",
-  };
-
-  return createEnhancedCookie(name, sessionToken, enhancedOptions);
+  return createCookie(
+    name,
+    sessionToken,
+    cookieOptions,
+    config.session.enhancedCookieOptions,
+  );
 }
 
-export function clearSessionCookie(config: AegisAuthConfig): string {
-  const { name, ...cookieOptions } = config.session.cookie;
-
-  const enhancedOptions = {
-    ...cookieOptions,
-    maxAge: 0,
-    partitioned: config.session.enhancedCookieOptions?.partitioned,
-  };
-
-  return createEnhancedCookie(name, "", enhancedOptions);
-}
-
+/**
+ * Creates a CSRF cookie with configuration
+ *
+ * @param csrfToken - CSRF token to store
+ * @param config - Auth configuration
+ * @returns A formatted CSRF cookie string
+ */
 export function createCsrfCookie(
   csrfToken: string,
   config: AegisAuthConfig,
 ): string {
   const { name, ...cookieOptions } = config.csrf.cookie;
 
-  const enhancedOptions = {
-    ...cookieOptions,
-    partitioned: config.csrf.enhancedCookieOptions?.partitioned,
-    priority: config.csrf.enhancedCookieOptions?.priority || "medium",
-  };
-
-  return createEnhancedCookie(name, csrfToken, enhancedOptions);
+  return createCookie(
+    name,
+    csrfToken,
+    cookieOptions,
+    config.csrf.enhancedCookieOptions,
+  );
 }
 
+/**
+ * Creates a cookie clearing string
+ *
+ * @param name - Cookie name to clear
+ * @param options - Cookie options
+ * @param enhanced - Enhanced cookie options
+ * @returns A cookie string that will clear the named cookie
+ */
+export function clearCookie(
+  name: string,
+  options: Omit<CookieOptions, "name" | "maxAgeSeconds">,
+  enhanced?: EnhancedCookieOptions,
+): string {
+  return createCookie(
+    name,
+    "",
+    {
+      ...options,
+      maxAgeSeconds: 0,
+    },
+    enhanced,
+  );
+}
+
+/**
+ * Clears the session cookie
+ *
+ * @param config - Auth configuration
+ * @returns A cookie string that will clear the session cookie
+ */
+export function clearSessionCookie(config: AegisAuthConfig): string {
+  const { name, maxAgeSeconds, ...cookieOptions } = config.session.cookie;
+
+  return clearCookie(name, cookieOptions, config.session.enhancedCookieOptions);
+}
+
+/**
+ * Clears the CSRF cookie
+ *
+ * @param config - Auth configuration
+ * @returns A cookie string that will clear the CSRF cookie
+ */
 export function clearCsrfCookie(config: AegisAuthConfig): string {
-  const { name, ...cookieOptions } = config.csrf.cookie;
+  const { name, maxAgeSeconds, ...cookieOptions } = config.csrf.cookie;
 
-  const enhancedOptions = {
-    ...cookieOptions,
-    maxAge: 0,
-    partitioned: config.csrf.enhancedCookieOptions?.partitioned,
-  };
-
-  return createEnhancedCookie(name, "", enhancedOptions);
+  return clearCookie(name, cookieOptions, config.csrf.enhancedCookieOptions);
 }
 
+/**
+ * Gets both session and CSRF cookies cleared
+ *
+ * @param config - Auth configuration
+ * @returns Object with both cookies cleared
+ */
+export function getClearCookies(config: AegisAuthConfig): {
+  sessionCookie: string;
+  csrfCookie: string;
+} {
+  return {
+    sessionCookie: clearSessionCookie(config),
+    csrfCookie: clearCsrfCookie(config),
+  };
+}
+
+/**
+ * Extracts a named cookie from request headers
+ *
+ * @param headers - Request headers
+ * @param name - Cookie name to extract
+ * @returns The cookie value or undefined if not found
+ */
+export function getCookieFromHeaders(
+  headers: Headers,
+  name: string,
+): string | undefined {
+  const cookieHeader = headers.get("cookie");
+  if (!cookieHeader) return undefined;
+
+  const cookies = parseCookie(cookieHeader);
+  return cookies[name];
+}
+
+/**
+ * Gets the session token from request headers
+ *
+ * @param headers - Request headers
+ * @param config - Auth configuration
+ * @returns Session token or undefined if not found
+ */
 export function getSessionToken(
   headers: Headers,
   config: AegisAuthConfig,
 ): string | undefined {
-  const cookie = headers.get("cookie");
-  if (!cookie) return undefined;
-
-  const cookies = parseCookie(cookie);
-  return cookies[config.session.cookie.name];
+  return getCookieFromHeaders(headers, config.session.cookie.name);
 }
 
-export function getCsrfToken(headers: Headers, config: AegisAuthConfig) {
-  const cookie = headers.get("cookie");
-  if (!cookie) return undefined;
-
-  const cookies = parseCookie(cookie);
-  return cookies[config.csrf.cookie.name];
+/**
+ * Gets the CSRF token from request headers
+ *
+ * @param headers - Request headers
+ * @param config - Auth configuration
+ * @returns CSRF token or undefined if not found
+ */
+export function getCsrfToken(
+  headers: Headers,
+  config: AegisAuthConfig,
+): string | undefined {
+  return getCookieFromHeaders(headers, config.csrf.cookie.name);
 }

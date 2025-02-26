@@ -1,13 +1,20 @@
 import type { Redis } from "@upstash/redis";
+import type { EndpointName } from "../constants";
 import type { AegisContext } from "./context";
-import type { EndpointName } from "./rateLimit";
+import type { FingerprintOptions } from "./session";
 
+/**
+ * Enhanced cookie options for modern browsers
+ */
 export interface EnhancedCookieOptions {
   partitioned?: boolean;
   priority?: "low" | "medium" | "high";
 }
 
-export type CookieOptions = {
+/**
+ * Basic cookie configuration
+ */
+export interface CookieOptions {
   name: string;
   maxAgeSeconds: number;
   domain?: string;
@@ -15,54 +22,77 @@ export type CookieOptions = {
   httpOnly: boolean;
   secure: boolean;
   sameSite: "strict" | "lax" | "none" | boolean;
-};
+}
 
+/**
+ * Email handler function type
+ */
 export type EmailHandler = (options: {
   ctx: AegisContext;
   to: string;
   token: string;
 }) => Promise<void>;
 
+/**
+ * Logger configuration
+ */
 export interface LoggerConfig {
+  debug(msg: string, meta?: Record<string, unknown>): void;
   info(msg: string, meta?: Record<string, unknown>): void;
   warn(msg: string, meta?: Record<string, unknown>): void;
   error(msg: string, meta?: Record<string, unknown>): void;
-  debug(msg: string, meta?: Record<string, unknown>): void;
 }
 
-export interface FingerprintOptions {
-  enabled: boolean;
-  includeIp: boolean;
-  strictValidation: boolean;
-  maxDevicesPerUser?: number;
-}
-
+/**
+ * IP detection options
+ */
 export interface IPDetectionOptions {
   trustProxyHeaders: boolean;
   proxyHeaderPrecedence: string[];
   allowPrivateIPs: boolean;
 }
 
+/**
+ * Core configuration for the authentication system
+ */
 export interface CoreConfig {
   baseUrl: string;
+  environment?: "development" | "test" | "production";
 }
 
+/**
+ * Account-related settings
+ */
 export interface AccountConfig {
-  reuseOldPasswords: boolean;
-  maxSimultaneousSessions: number;
   requireEmailVerification: boolean;
+  reuseOldPasswords: boolean;
+  maxPasswordHistory?: number;
+  maxSimultaneousSessions: number;
+  preventConcurrentSessions?: boolean;
 }
 
+/**
+ * Registration settings
+ */
 export interface RegistrationConfig {
   enabled: boolean;
   requireInvitation: boolean;
+  allowedDomains?: string[];
+  invitationExpiryDays?: number;
 }
 
+/**
+ * Login and account security settings
+ */
 export interface LoginConfig {
   maxFailedAttempts: number;
   lockoutDurationSeconds: number;
+  progressiveDelays?: boolean;
 }
 
+/**
+ * Password hashing and validation rules
+ */
 export interface PasswordConfig {
   hash: {
     cost: number;
@@ -80,6 +110,9 @@ export interface PasswordConfig {
   };
 }
 
+/**
+ * Session management configuration
+ */
 export interface SessionConfig {
   secret: string;
   tokenLength: number;
@@ -92,6 +125,9 @@ export interface SessionConfig {
   fingerprintOptions?: FingerprintOptions;
 }
 
+/**
+ * CSRF protection settings
+ */
 export interface CsrfConfig {
   enabled: boolean;
   secret: string;
@@ -100,11 +136,17 @@ export interface CsrfConfig {
   enhancedCookieOptions?: EnhancedCookieOptions;
 }
 
+/**
+ * Verification token settings
+ */
 export interface VerificationConfig {
   tokenLength: number;
   tokenExpirySeconds: number;
 }
 
+/**
+ * Rate limiting configuration
+ */
 export interface RateLimitConfig {
   enabled: boolean;
   redis?: Redis;
@@ -121,6 +163,9 @@ export interface RateLimitConfig {
   >;
 }
 
+/**
+ * Geolocation service configuration
+ */
 export interface GeoLookupConfig {
   enabled: boolean;
   maxmindClientId: string;
@@ -128,6 +173,9 @@ export interface GeoLookupConfig {
   maxmindHost: string;
 }
 
+/**
+ * Email notification handlers
+ */
 export interface EmailConfig {
   sendEmailVerification: EmailHandler;
   sendPasswordReset: EmailHandler;
@@ -135,6 +183,9 @@ export interface EmailConfig {
   sendAccountDeletion: EmailHandler;
 }
 
+/**
+ * Complete authentication configuration
+ */
 export interface AegisAuthConfig {
   logger?: LoggerConfig;
   core: CoreConfig;

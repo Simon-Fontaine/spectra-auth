@@ -1,4 +1,5 @@
 import { subtle } from "uncrypto";
+import { ErrorCode } from "../constants";
 import type { AegisAuthConfig, AegisResponse } from "../types";
 import { fail, success } from "./response";
 
@@ -10,84 +11,83 @@ interface FingerprintOptions {
 }
 
 /**
- * Generates a browser fingerprint based on available client information
+ * Generates a browser fingerprint based on request data
  *
- * @param ip - The client IP address (optional)
- * @param userAgent - The client user agent string (optional)
- * @param headers - Request headers
- * @param config - Authentication configuration
- * @returns A response with the generated fingerprint hash or an error
+ * @param options - Fingerprint generation options
+ * @returns Response with the generated fingerprint or error
  */
-export async function generateBrowserFingerprint({
-  ip,
-  userAgent,
-  headers,
-  config,
-}: FingerprintOptions): Promise<AegisResponse<string>> {
+export async function generateFingerprint(
+  options: FingerprintOptions,
+): Promise<AegisResponse<string>> {
   try {
+    const { ip, userAgent, headers, config } = options;
     const factors: string[] = [];
 
-    // Include IP if configured
+    // Include IP address if configured and available
     if (ip && config.session.fingerprintOptions?.includeIp) {
       factors.push(`ip:${ip}`);
     }
 
-    // User agent provides browser and OS info
+    // Include user agent if available
     if (userAgent) {
       factors.push(`ua:${userAgent}`);
     }
 
-    // Accept-Language header indicates user's language preferences
-    const acceptLanguage = headers.get("accept-language");
-    if (acceptLanguage) {
-      factors.push(`lang:${acceptLanguage}`);
+    // Common headers that help identify the browser
+    const headerFactors = [
+      ["accept-language", "lang"],
+      ["accept", "accept"],
+      ["accept-encoding", "enc"],
+      ["dnt", "dnt"], // Do Not Track
+      ["sec-ch-ua", "ua-brands"],
+      ["sec-ch-ua-mobile", "ua-mobile"],
+      ["sec-ch-ua-platform", "ua-platform"],
+      ["sec-ch-ua-platform-version", "ua-platform-ver"],
+      ["sec-ch-width", "width"],
+      ["sec-ch-viewport-width", "viewport-width"],
+      ["sec-ch-device-memory", "device-memory"],
+    ];
+
+    // Add available header data
+    for (const [headerName, factorName] of headerFactors) {
+      const value = headers.get(headerName);
+      if (value) {
+        factors.push(`${factorName}:${value}`);
+      }
     }
 
-    // Custom header for screen information
-    const screenInfo = headers.get("x-screen-info");
-    if (screenInfo) {
-      factors.push(`screen:${screenInfo}`);
-    }
+    // Custom headers for client hints
+    const customHeaders = [
+      "x-screen-info",
+      "x-timezone",
+      "x-color-depth",
+      "x-device-pixel-ratio",
+    ];
 
-    // Custom header for timezone
-    const timezone = headers.get("x-timezone");
-    if (timezone) {
-      factors.push(`tz:${timezone}`);
-    }
-
-    // Sec-CH headers (Client Hints) if available
-    const secChUa = headers.get("sec-ch-ua");
-    if (secChUa) {
-      factors.push(`ua-brands:${secChUa}`);
-    }
-
-    const secChUaMobile = headers.get("sec-ch-ua-mobile");
-    if (secChUaMobile) {
-      factors.push(`ua-mobile:${secChUaMobile}`);
-    }
-
-    const secChUaPlatform = headers.get("sec-ch-ua-platform");
-    if (secChUaPlatform) {
-      factors.push(`ua-platform:${secChUaPlatform}`);
+    for (const header of customHeaders) {
+      const value = headers.get(header);
+      if (value) {
+        factors.push(`${header.replace("x-", "")}:${value}`);
+      }
     }
 
     // Check if we have enough data for a useful fingerprint
     if (factors.length < 2) {
       return fail(
-        "FINGERPRINT_INSUFFICIENT_DATA",
+        ErrorCode.FINGERPRINT_INSUFFICIENT_DATA,
         "Insufficient information to generate a reliable fingerprint",
       );
     }
 
     // Sort factors for consistent ordering
-    const fingerprintInput = factors.sort().join("|");
+    const fingerprintData = factors.sort().join("|");
 
-    // Generate a SHA-256 hash of the fingerprint data
+    // Generate SHA-256 hash
     const encoder = new TextEncoder();
-    const data = encoder.encode(fingerprintInput);
+    const data = encoder.encode(fingerprintData);
     const hashBuffer = await subtle.digest("SHA-256", data);
 
-    // Convert hash to hex string
+    // Convert to hex string
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const hashHex = hashArray
       .map((b) => b.toString(16).padStart(2, "0"))
@@ -96,21 +96,21 @@ export async function generateBrowserFingerprint({
     return success(hashHex);
   } catch (error) {
     return fail(
-      "FINGERPRINT_GENERATION_ERROR",
+      ErrorCode.FINGERPRINT_GENERATION_ERROR,
       "Failed to generate browser fingerprint",
     );
   }
 }
 
 /**
- * Validates a session's fingerprint against the current client fingerprint
+ * Validates current fingerprint against stored fingerprint
  *
- * @param currentFingerprint - The fingerprint generated from the current request
- * @param storedFingerprint - The fingerprint stored with the session
+ * @param currentFingerprint - Fingerprint from current request
+ * @param storedFingerprint - Fingerprint stored with session
  * @param config - Authentication configuration
- * @returns A response with validation result or an error
+ * @returns Response with validation result
  */
-export async function validateSessionFingerprint(
+export async function validateFingerprint(
   currentFingerprint: string,
   storedFingerprint: string | undefined,
   config: AegisAuthConfig,
@@ -124,23 +124,33 @@ export async function validateSessionFingerprint(
     // Handle missing stored fingerprint
     if (!storedFingerprint) {
       if (config.session.fingerprintOptions?.strictValidation) {
-        return fail("FINGERPRINT_MISSING", "Session fingerprint missing");
+        return fail(
+          ErrorCode.FINGERPRINT_MISSING,
+          "Session fingerprint missing",
+        );
       }
       return success(true);
     }
 
-    // Check for exact match first
+    // Check for exact match
     const exactMatch = currentFingerprint === storedFingerprint;
 
-    // For non-strict validation, just return the match result
-    if (!config.session.fingerprintOptions?.strictValidation) {
-      return success(exactMatch);
+    // For non-strict validation, calculate similarity for fuzzy matching
+    if (!exactMatch && !config.session.fingerprintOptions?.strictValidation) {
+      const similarity = calculateSimilarity(
+        currentFingerprint,
+        storedFingerprint,
+      );
+      // Accept if similarity is above threshold (80%)
+      if (similarity > 0.8) {
+        return success(true);
+      }
     }
 
-    // In strict mode, fail if there's a mismatch
+    // In strict mode or below similarity threshold
     if (!exactMatch) {
       return fail(
-        "FINGERPRINT_MISMATCH",
+        ErrorCode.FINGERPRINT_MISMATCH,
         "Session fingerprint mismatch detected",
       );
     }
@@ -148,35 +158,30 @@ export async function validateSessionFingerprint(
     return success(true);
   } catch (error) {
     return fail(
-      "FINGERPRINT_VALIDATION_ERROR",
+      ErrorCode.FINGERPRINT_VALIDATION_ERROR,
       "Failed to validate fingerprint",
     );
   }
 }
 
 /**
- * Calculates similarity between two fingerprints
- * This helps handle minor browser updates that slightly change the fingerprint
+ * Calculates the similarity between two fingerprints
  *
- * @param fingerprintA - First fingerprint
- * @param fingerprintB - Second fingerprint
+ * @param a - First fingerprint
+ * @param b - Second fingerprint
  * @returns Similarity score between 0 and 1
  */
-export function calculateFingerprintSimilarity(
-  fingerprintA: string,
-  fingerprintB: string,
-): number {
-  // Simple implementation: count matching characters
-  if (fingerprintA.length !== fingerprintB.length) {
-    return 0;
-  }
+export function calculateSimilarity(a: string, b: string): number {
+  if (a === b) return 1;
+  if (a.length !== b.length) return 0;
 
   let matchingChars = 0;
-  for (let i = 0; i < fingerprintA.length; i++) {
-    if (fingerprintA[i] === fingerprintB[i]) {
+
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] === b[i]) {
       matchingChars++;
     }
   }
 
-  return matchingChars / fingerprintA.length;
+  return matchingChars / a.length;
 }
